@@ -16,12 +16,13 @@ from eblstud.misc.constants import *
 from PhotALPsConv.conversion_ICM import PhotALPs_ICM
 import logging
 import warnings
+import pickle
 # --- Conversion in the galactic magnetic field ---------------------------------------------------------------------#
 from gmf import gmf
 from gmf.trafo import *
 from kapteyn import wcs
 from scipy.integrate import simps
-from gmf.ne2001 import density_2001
+from gmf.ne2001 import density_2001_los as dl
 
 pertubation = 0.10	# Limit for pertubation theory to be valid
 
@@ -354,16 +355,20 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	pol_a = np.zeros((3,3),np.complex)
 	pol_a[2,2] += 1.
 
+	if self.NE2001:
+	    filename = '/nfs/astrop/d6/meyerm/axion_cluster/data/NE2001/smax{0:.1f}_l{1:.1f}_b{2:.1f}_Lcoh{3}.pickle'.format(self.smax,self.l,self.b,self.Lcoh)
+	    try:
+		f = open(filename)
+		# returns n in cm^-3
+		n = pickle.load(f) *1e3		# convert into 1e-3 cm^-3
+		f.close()
+	    except IOError:
+		# returns n in cm^-3
+		n = dl(sa,self.l,self.b,filename,d=self.d) * 1e3		# convert into 1e-3 cm^-3
+
 	for i,s in enumerate(sa):
 	    if self.NE2001:
-		# returns n in cm^-3
-		
-		logging.debug('here')
-		n	= density_2001(x_HC2GC(s,self.l,self.b,self.d),y_HC2GC(s,self.l,self.b,self.d),z_HC2GC(s,self.l,self.b,self.d))
-		logging.debug('and done')
-		#logging.debug('{0}-th step of {1}, n = {2}'.format(i,sa.shape[0],n))
-		if n >= 0:	# computation succeeded
-		    self.n = n[0] * 1e3		# convert into 1e-3 cm^-3
+		self.n = n[i]
 		    
 	    B,Babs	= self.Bgmf_calc(s)
 	    Bs, Bt, Bu	= GC2HCproj(B, s, self.l, self.b,self.d)	# Compute Bgmf and the projection to HC coordinates (s,b,l)
