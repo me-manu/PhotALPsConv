@@ -1,0 +1,244 @@
+"""
+Class for the calculation of photon-ALPs conversion in galaxy clusters
+
+History:
+- 06/01/12: created
+"""
+__version__=0.01
+__author__="M. Meyer // manuel.meyer@physik.uni-hamburg.de"
+
+
+import numpy as np
+from math import ceil
+import eblstud.ebl.tau_from_model as Tau
+from eblstud.ebl import mfn_model as MFN
+from eblstud.misc.constants import *
+import logging
+import warnings
+
+# --- Conversion without absorption, designed to match values in Clusters -------------------------------------------#
+from deltas import *
+class PhotALPs_ICM(object):
+    """
+    Class for photon ALP conversion in galaxy clusters and the intra cluster medium (ICM) 
+
+    Attributes
+    ----------
+    Lcoh:	coherence length / domain size of turbulent B-field in the cluster in kpc
+    B:		field strength of transverse component of the cluster B-field, in muG
+    r_abell:	size of cluster filled with the constant B-field in kpc
+    g:		Photon ALP coupling in 10^{-11} GeV^-1
+    m:		ALP mass in neV
+    n:		thermal electron density in the cluster, in 10^{-3} cm^-3
+    Nd:		number of domains, Lcoh/r_abell
+    xi:		g * B
+    Psin:	random angle in domain n between transverse B field and propagation direction
+    T1:		Transfer matrix 1
+    T2:		Transfer matrix 2				
+    T3:		Transfer matrix 3
+    Un:		Total transfermatrix in n-th domain 
+    Dperp:	Mixing matrix parameter Delta_perpedicular in n-th domain
+    Dpar:	Mixing matrix parameter Delta_{||} in n-th domain
+    Dag:	Mixing matrix parameter Delta_{a\gamma} in n-th domain
+    Da:		Mixing matrix parameter Delta_{a} in n-th domain
+    alph:	Mixing angle
+    Dosc:	Oscillation Delta
+
+    EW1: 	Eigenvalue 1 of mixing matrix
+    EW2:	Eigenvalue 2 of mixing matrix
+    EW3:	Eigenvalue 3 of mixing matrix
+
+    Notes
+    -----
+    For Photon - ALP mixing theory see e.g. De Angelis et al. 2011 
+    http://adsabs.harvard.edu/abs/2011PhRvD..84j5030D
+    """
+    def __init__(self, Lcoh=10., B=1., r_abell=1500.*h , E_GeV = 1000., g = 1., m = 1., n = 1.):
+	"""
+	init photon axion conversion in intracluster medium
+
+	Parameters
+	----------
+	Lcoh:	coherence length / domain size of turbulent B-field in the cluster in kpc, default: 10 kpc
+	B:		field strength of transverse component of the cluster B-field, in muG, default: 1 muG
+	r_abell:	size of cluster filled with the constant B-field in kpc. default: 1500 * h
+	g:		Photon ALP coupling in 10^{-11} GeV^-1, default: 1.
+	m:		ALP mass in neV, default: 1.
+	n:		thermal electron density in the cluster, in 10^{-3} cm^-3, default: 1.
+
+	Returns
+	-------
+	Nothing.
+	"""
+
+	self.Nd		= r_abell / Lcoh	# number of domains, no expansion assumed
+	self.Lcoh	= Lcoh
+	self.E		= E_GeV
+	self.B		= B
+	self.g		= g
+	self.m		= m
+	self.n		= n
+	self.xi		= g * B			# xi parameter as in IGM case, in kpc
+	self.Psin	= 0.			# angle between photon propagation on B-field in i-th domain 
+	self.T1		= np.zeros((3,3),np.complex)	# Transfer matrices
+	self.T2		= np.zeros((3,3),np.complex)
+	self.T3		= np.zeros((3,3),np.complex)
+	self.Un		= np.zeros((3,3),np.complex)
+	return
+
+    def __setDeltas(self):
+	"""
+	Set Deltas of mixing matrix
+	
+	Parameters
+	----------
+	None (self only)
+
+	Returns
+	-------
+	Nothing
+	"""
+
+	self.Dperp	= Delta_pl_kpc(self.n,self.E) + 2.*Delta_QED_kpc(self.B,self.E)
+	self.Dpar	= Delta_pl_kpc(self.n,self.E) + 3.5*Delta_QED_kpc(self.B,self.E)
+	self.Dag	= Delta_ag_kpc(self.g,self.B)
+	self.Da		= Delta_a_kpc(self.m,self.E)
+	self.alph	= 0.5 * np.arctan(2. * self.Dag / (self.Dpar - self.Da)) 
+	self.Dosc	= np.sqrt((self.Dpar - self.Da)**2. + 4.*self.Dag**2.)
+
+	#logging.debug("Dperp, Dpar, Dag, Da, alph, Dosc: {0:.2e} {1:.2e} {2:.2e} {3:.2e} {4:.2e} {5:.2e}".format(self.Dperp, self.Dpar, self.Dag, self.Da, self.alph, self.Dosc))
+	return
+
+    def __setEW(self):
+	"""
+	Set Eigenvalues
+	
+	Parameters
+	----------
+	None (self only)
+
+	Returns
+	-------
+	Nothing
+	"""
+	self.__setDeltas()
+	self.EW1 = self.Dperp
+	self.EW2 = 0.5 * (self.Dpar + self.Da - self.Dosc)
+	self.EW3 = 0.5 * (self.Dpar + self.Da + self.Dosc)
+	return
+	
+
+    def __setT1n(self):
+	"""
+	Set T1 in n-th domain
+	
+	Parameters
+	----------
+	None (self only)
+
+	Returns
+	-------
+	Nothing
+	"""
+	c = np.cos(self.Psin)
+	s = np.sin(self.Psin)
+	self.T1[0,0]	= c*c
+	self.T1[0,1]	= -1. * c*s
+	self.T1[1,0]	= self.T1[0,1]
+	self.T1[1,1]	= s*s
+	return
+
+    def __setT2n(self):
+	"""
+	Set T2 in n-th domain
+	
+	Parameters
+	----------
+	None (self only)
+
+	Returns
+	-------
+	Nothing
+	"""
+	c = np.cos(self.Psin)
+	s = np.sin(self.Psin)
+	ca = np.cos(self.alph)
+	sa = np.sin(self.alph)
+	self.T2[0,0] = s*s*sa*sa
+	self.T2[0,1] = s*c*sa*sa
+	self.T2[0,2] = -1. * s * sa *ca
+
+	self.T2[1,0] = self.T2[0,1]
+	self.T2[1,1] = c*c*sa*sa
+	self.T2[1,2] = -1. * c *ca * sa
+
+	self.T2[2,0] = self.T2[0,2]
+	self.T2[2,1] = self.T2[1,2]
+	self.T2[2,2] = ca * ca
+	return
+
+    def __setT3n(self):
+	"""
+	Set T3 in n-th domain
+	
+	Parameters
+	----------
+	None (self only)
+
+	Returns
+	-------
+	Nothing
+	"""
+	c = np.cos(self.Psin)
+	s = np.sin(self.Psin)
+	ca = np.cos(self.alph)
+	sa = np.sin(self.alph)
+	self.T3[0,0] = s*s*ca*ca
+	self.T3[0,1] = s*c*ca*ca
+	self.T3[0,2] = s*sa*ca
+
+	self.T3[1,0] = self.T3[0,1]
+	self.T3[1,1] = c*c*ca*ca
+	self.T3[1,2] = c * sa *ca
+
+	self.T3[2,0] = self.T3[0,2]
+	self.T3[2,1] = self.T3[1,2]
+	self.T3[2,2] = sa*sa
+	return
+
+    def __setUn(self):
+	"""
+	Set Transfer Matrix Un in n-th domain
+	
+	Parameters
+	----------
+	None (self only)
+
+	Returns
+	-------
+	Nothing
+	"""
+	self.Un = np.exp(1.j * self.EW1 * self.Lcoh) * self.T1 + \
+	np.exp(1.j * self.EW2 * self.Lcoh) * self.T2 + \
+	np.exp(1.j * self.EW3 * self.Lcoh) * self.T3
+	return
+
+    def SetDomainN(self):
+	"""
+	Set Transfer matrix to n-th domain and return it
+
+	Parameters
+	----------
+	None (self only)
+
+	Returns
+	-------
+	Transfer matrix in n-th domian as 3x3 complex numpy array
+	"""
+	self.__setEW()
+	self.__setT1n()
+	self.__setT2n()
+	self.__setT3n()
+	self.__setUn()
+	#self.Un = np.round(self.Un,8)
+	return self.Un
