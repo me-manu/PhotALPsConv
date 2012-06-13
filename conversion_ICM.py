@@ -15,6 +15,7 @@ from eblstud.ebl import mfn_model as MFN
 from eblstud.misc.constants import *
 import logging
 import warnings
+from numpy.random import rand, seed
 
 # --- Conversion without absorption, designed to match values in Clusters -------------------------------------------#
 from deltas import *
@@ -33,10 +34,10 @@ class PhotALPs_ICM(object):
     Nd:		number of domains, Lcoh/r_abell
     xi:		g * B
     Psin:	random angle in domain n between transverse B field and propagation direction
-    T1:		Transfer matrix 1
-    T2:		Transfer matrix 2				
-    T3:		Transfer matrix 3
-    Un:		Total transfermatrix in n-th domain 
+    T1:		Transfer matrix 1 (3x3xNd)-matrix
+    T2:		Transfer matrix 2 (3x3xNd)-matrix		
+    T3:		Transfer matrix 3 (3x3xNd)-matrix
+    Un:		Total transfer matrix in all domains (3x3xNd)-matrix
     Dperp:	Mixing matrix parameter Delta_perpedicular in n-th domain
     Dpar:	Mixing matrix parameter Delta_{||} in n-th domain
     Dag:	Mixing matrix parameter Delta_{a\gamma} in n-th domain
@@ -79,16 +80,16 @@ class PhotALPs_ICM(object):
 	self.m		= m
 	self.n		= n
 	self.xi		= g * B			# xi parameter as in IGM case, in kpc
-	self.Psin	= 0.			# angle between photon propagation on B-field in i-th domain 
-	self.T1		= np.zeros((3,3),np.complex)	# Transfer matrices
-	self.T2		= np.zeros((3,3),np.complex)
-	self.T3		= np.zeros((3,3),np.complex)
-	self.Un		= np.zeros((3,3),np.complex)
+	self.Psin	= 2. * np.pi * rand(1,int(self.Nd))[0]	# angle between photon propagation on B-field in i-th domain 
+	self.T1		= np.zeros((3,3,self.Nd),np.complex)	# Transfer matrices
+	self.T2		= np.zeros((3,3,self.Nd),np.complex)
+	self.T3		= np.zeros((3,3,self.Nd),np.complex)
+	self.Un		= np.zeros((3,3,self.Nd),np.complex)
 	return
 
     def __setDeltas(self):
 	"""
-	Set Deltas of mixing matrix
+	Set Deltas of mixing matrix, they do not change over each domain
 	
 	Parameters
 	----------
@@ -130,7 +131,7 @@ class PhotALPs_ICM(object):
 
     def __setT1n(self):
 	"""
-	Set T1 in n-th domain
+	Set T1 in all domains
 	
 	Parameters
 	----------
@@ -142,15 +143,15 @@ class PhotALPs_ICM(object):
 	"""
 	c = np.cos(self.Psin)
 	s = np.sin(self.Psin)
-	self.T1[0,0]	= c*c
-	self.T1[0,1]	= -1. * c*s
-	self.T1[1,0]	= self.T1[0,1]
-	self.T1[1,1]	= s*s
+	self.T1[0,0,:]	= c*c
+	self.T1[0,1,:]	= -1. * c*s
+	self.T1[1,0,:]	= self.T1[0,1]
+	self.T1[1,1,:]	= s*s
 	return
 
     def __setT2n(self):
 	"""
-	Set T2 in n-th domain
+	Set T2 in all domains
 	
 	Parameters
 	----------
@@ -164,22 +165,22 @@ class PhotALPs_ICM(object):
 	s = np.sin(self.Psin)
 	ca = np.cos(self.alph)
 	sa = np.sin(self.alph)
-	self.T2[0,0] = s*s*sa*sa
-	self.T2[0,1] = s*c*sa*sa
-	self.T2[0,2] = -1. * s * sa *ca
+	self.T2[0,0,:] = s*s*sa*sa
+	self.T2[0,1,:] = s*c*sa*sa
+	self.T2[0,2,:] = -1. * s * sa *ca
 
-	self.T2[1,0] = self.T2[0,1]
-	self.T2[1,1] = c*c*sa*sa
-	self.T2[1,2] = -1. * c *ca * sa
+	self.T2[1,0,:] = self.T2[0,1]
+	self.T2[1,1,:] = c*c*sa*sa
+	self.T2[1,2,:] = -1. * c *ca * sa
 
-	self.T2[2,0] = self.T2[0,2]
-	self.T2[2,1] = self.T2[1,2]
-	self.T2[2,2] = ca * ca
+	self.T2[2,0,:] = self.T2[0,2]
+	self.T2[2,1,:] = self.T2[1,2]
+	self.T2[2,2,:] = ca * ca
 	return
 
     def __setT3n(self):
 	"""
-	Set T3 in n-th domain
+	Set T3 in all domains
 	
 	Parameters
 	----------
@@ -193,17 +194,17 @@ class PhotALPs_ICM(object):
 	s = np.sin(self.Psin)
 	ca = np.cos(self.alph)
 	sa = np.sin(self.alph)
-	self.T3[0,0] = s*s*ca*ca
-	self.T3[0,1] = s*c*ca*ca
-	self.T3[0,2] = s*sa*ca
+	self.T3[0,0,:] = s*s*ca*ca
+	self.T3[0,1,:] = s*c*ca*ca
+	self.T3[0,2,:] = s*sa*ca
 
-	self.T3[1,0] = self.T3[0,1]
-	self.T3[1,1] = c*c*ca*ca
-	self.T3[1,2] = c * sa *ca
+	self.T3[1,0,:] = self.T3[0,1]
+	self.T3[1,1,:] = c*c*ca*ca
+	self.T3[1,2,:] = c * sa *ca
 
-	self.T3[2,0] = self.T3[0,2]
-	self.T3[2,1] = self.T3[1,2]
-	self.T3[2,2] = sa*sa
+	self.T3[2,0,:] = self.T3[0,2]
+	self.T3[2,1,:] = self.T3[1,2]
+	self.T3[2,2,:] = sa*sa
 	return
 
     def __setUn(self):
@@ -225,7 +226,7 @@ class PhotALPs_ICM(object):
 
     def SetDomainN(self):
 	"""
-	Set Transfer matrix to n-th domain and return it
+	Set Transfer matrix in all domains and multiply it
 
 	Parameters
 	----------
@@ -233,12 +234,17 @@ class PhotALPs_ICM(object):
 
 	Returns
 	-------
-	Transfer matrix in n-th domian as 3x3 complex numpy array
+	Transfer matrix as 3x3 complex numpy array
 	"""
 	self.__setEW()
 	self.__setT1n()
 	self.__setT2n()
 	self.__setT3n()
-	self.__setUn()
-	#self.Un = np.round(self.Un,8)
-	return self.Un
+	self.__setUn()	# self.Un contains now all 3x3 matrices in all self.Nd domains
+	# do the martix multiplication
+	for i in range(self.Un.shape[2]):
+	    if not i:
+		U = self.Un[:,:,i]
+	    else:
+		U = np.dot(self.Un[:,:,i],U)
+	return U
