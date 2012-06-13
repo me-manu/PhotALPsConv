@@ -87,6 +87,21 @@ class PhotALPs_ICM(object):
 	self.Un		= np.zeros((3,3,self.Nd),np.complex)
 	return
 
+    def new_random_psi(self):
+	"""
+	Calculate new random psi values
+
+	Parameters:
+	-----------
+	None
+
+	Returns:
+	--------
+	Nothing
+	"""
+	self.Psin	= 2. * np.pi * rand(1,int(self.Nd))[0]	# angle between photon propagation on B-field in i-th domain 
+	return
+
     def __setDeltas(self):
 	"""
 	Set Deltas of mixing matrix, they do not change over each domain
