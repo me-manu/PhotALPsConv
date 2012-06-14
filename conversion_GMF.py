@@ -171,7 +171,8 @@ class PhotALPs_GMF(PhotALPs_ICM):
 
 	Babs = np.sqrt(np.sum(B**2., axis = 0))	# compute overall field strength
 
-	#logging.debug('rho,phi,z,Babs, Bfield = {0:.2f},{1:.2f},{2:.2f},{3},{4}'.format(rho,phi,z,Babs,B))
+	for i,r in enumerate(rho):
+	    logging.debug('rho,phi,z,Babs, Bfield = {0:.2f},{1:.2f},{2:.2f},{3:.2f},{4:30}'.format(rho[i],phi[i],z[i],Babs[i],B[:,i]))
 
 	return B,Babs
 
