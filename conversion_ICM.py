@@ -262,5 +262,6 @@ class PhotALPs_ICM(object):
 	    if not i:
 		U = self.Un[:,:,i]
 	    else:
-		U = np.dot(self.Un[:,:,i],U)
+		#U = np.dot(self.Un[:,:,i],U)	# first matrix on the right
+		U = np.dot(U,self.Un[:,:,i])	# first matrix on the left
 	return U

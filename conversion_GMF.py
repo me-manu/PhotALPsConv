@@ -161,8 +161,8 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	z	= z_HC2GC(s,l,b,self.d)	# compute z in GC coordinates for s,l,b
 
 	B = self.Bgmf.Bdisk(rho,phi,z)[0] 	# add all field components
-	B += self.Bgmf.Bhalo(rho,z)[0] 
-	B += self.Bgmf.BX(rho,z)[0] 
+	#B += self.Bgmf.Bhalo(rho,z)[0] 
+	#B += self.Bgmf.BX(rho,z)[0] 
 
 	# Single components for debugging
 	#B = self.Bgmf.Bdisk(rho,phi,z)[0] 	# add all field components
@@ -197,8 +197,6 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	self.E	= E
 
 	# first domain is that one farthest away from us, i.e. that on the edge of the milky way
-	#logging.debug("smax {0:.5f}".format(self.smax))
-
 	if int(self.smax/self.Lcoh) < 100:				# at least 100 domains
 	    sa	= np.linspace(self.smax,0., 100,endpoint = False)	# divide distance into smax / Lcoh large cells
 	    self.Lcoh = self.smax / 100.
@@ -240,21 +238,20 @@ class PhotALPs_GMF(PhotALPs_ICM):
 		# returns n in cm^-3
 		self.n = dl(sa,self.l,self.b,filename,d=self.d) * 1e3		# convert into 1e-3 cm^-3
 	else:
-	    self.n = self.n * np.ones(self.Nd)
+	    n = self.n[0]
+	    self.n = n * np.ones(self.Nd)
 	# ----------------------------------------------------------------- #
 
-	U 	= np.diag(np.diag(np.ones((3,3), np.complex)))
-
-	pol_t = np.zeros((3,3),np.complex)
-	pol_t[0,0] += 1.
-	pol_u = np.zeros((3,3),np.complex)
-	pol_u[1,1] += 1.
-	pol_unpol = 0.5*(pol_t + pol_u)
-	pol_a = np.zeros((3,3),np.complex)
-	pol_a[2,2] += 1.
-
+	U = super(PhotALPs_GMF,self).SetDomainN()		# calculate product of all transfer matrices
 
 	if pol_final == None:
+	    pol_t = np.zeros((3,3),np.complex)
+	    pol_t[0,0] += 1.
+	    pol_u = np.zeros((3,3),np.complex)
+	    pol_u[1,1] += 1.
+	    pol_unpol = 0.5*(pol_t + pol_u)
+	    pol_a = np.zeros((3,3),np.complex)
+	    pol_a[2,2] += 1.
 	    Pt = np.sum(np.diag(np.dot(pol_t,np.dot(U,np.dot(pol,U.transpose().conjugate())))))	#Pt = Tr( pol_t U pol U^\dagger )
 	    Pu = np.sum(np.diag(np.dot(pol_u,np.dot(U,np.dot(pol,U.transpose().conjugate())))))	#Pu = Tr( pol_u U pol U^\dagger )
 	    Pa = np.sum(np.diag(np.dot(pol_a,np.dot(U,np.dot(pol,U.transpose().conjugate())))))	#Pa = Tr( pol_a U pol U^\dagger )
