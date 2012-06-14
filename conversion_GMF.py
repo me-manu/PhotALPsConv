@@ -76,6 +76,7 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	-------
 	None.
 	"""
+	# ALP parameters g,m,n: already provided in super call
 	super(PhotALPs_GMF,self).__init__(g = g, m = m, n = n, Lcoh = Lcoh)	#Inherit everything from PhotALPs_ICM
 
 	self.l		= 0.
@@ -91,16 +92,11 @@ class PhotALPs_GMF(PhotALPs_ICM):
 
 
 	self.E		= 0.	# Energy an GeV
-	# ALP parameters: already provided in super call
-	#self.g		= g
-	#self.m		= m
-	#self.n		= n
-	# Initialize the Bfield the class
-	self.Bgmf = gmf.GMF()
+	self.Bgmf = gmf.GMF()	# Initialize the Bfield the class
 
 	return
 
-    def set_coordinates(self, ra, dec):
+    def __set_coordinates(self, ra, dec):
 	"""
 	set the coordinates l,b and the the maximum distance smax where |GMF| > 0
 
@@ -137,28 +133,32 @@ class PhotALPs_GMF(PhotALPs_ICM):
 
 	return self.l, self.b, self.smax
 
-    def Bgmf_calc(self,s,l = 0.,b = 0.):
+    def Bgmf_calc(self,s,l=0.,b=0.):
 	"""
 	compute GMF at (s,l,b) position where origin at self.d along x-axis in GC coordinates is assumed
 
 	Parameters
 	-----------
-	s: float, distance from sun in kpc
-	l: galactic longitude
-	b: galactic latitude
+	s: N-dim np.array, distance from sun in kpc for all domains
+	l (optional): galactic longitude, scalar or N-dim np.array
+	b (optional): galactic latitude, scalar or N-dim np.array
 
 	Returns
 	-------
-	GMF at this positon in galactocentric cylindrical coordinates (rho, phi, z) and field strength
+	2-dim tuple containing:
+	    (3,N)-dim np.parray containing GMF for all domains in galactocentric cylindrical coordinates (rho, phi, z) 
+	    N-dim np.array, field strength for all domains
 	"""
-	if not l:
-	    l = self.l
-	if not b:
-	    b = self.b
+	if np.isscalar(l):
+	    if not l:
+		l = self.l
+	if np.isscalar(b):
+	    if not b:
+		b = self.b
 
 	rho	= rho_HC2GC(s,l,b,self.d)	# compute rho in GC coordinates for s,l,b
 	phi	= phi_HC2GC(s,l,b,self.d)	# compute phi in GC coordinates for s,l,b
-	z	= z_HC2GC(s,l,b,self.d)		# compute z in GC coordinates for s,l,b
+	z	= z_HC2GC(s,l,b,self.d)	# compute z in GC coordinates for s,l,b
 
 	B = self.Bgmf.Bdisk(rho,phi,z)[0] 	# add all field components
 	B += self.Bgmf.Bhalo(rho,z)[0] 
@@ -169,152 +169,12 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	#B = self.Bgmf.Bhalo(rho,z)[0] 
 	#B = self.Bgmf.BX(rho,z)[0] 
 
-	Babs = np.sqrt(np.sum(B**2.))	# compute overall field strength
+	Babs = np.sqrt(np.sum(B**2., axis = 0))	# compute overall field strength
 
 	#logging.debug('rho,phi,z,Babs, Bfield = {0:.2f},{1:.2f},{2:.2f},{3},{4}'.format(rho,phi,z,Babs,B))
 
 	return B,Babs
 
-    def integrate_los(self,ra = 0.,dec = 0.):
-	"""
-	compute the line of sight integral of ALPs - Conversion probability,
-	I_{t/u} = | \int_0^{s_\mathrm{max}} \mathrm{d}s \Delta_{a\gamma}^{t/u}(s) \exp(i(\Delta_a(s) - \Delta_{|| / \perp}(s))s) |^2
-
-	Parameters
-	-----------
-	None
-	(l,b,smax and energy need to be set!)
-
-	Returns
-	-------
-	Values of I_t and I_u
-
-	Notes
-	-----
-	See Mirizzi, Raffelt & Serpico (2007) Eq. A23
-	and Simet, Hooper and Serpico (2008) Eq. 1
-	and my theory lab book p. 149f
-	"""
-
-	#sa	= np.linspace(0.,self.smax,100)
-	sa	= np.linspace(0.,self.smax,int(self.smax/self.Lcoh))
-	kernel_t = np.zeros(sa.shape[0],np.complex)
-	kernel_u = np.zeros(sa.shape[0],np.complex)
-	#logging.debug("smax,l,b = {0},{1},{2}".format(self.smax,self.l,self.b))
-	for i,s in enumerate(sa):
-
-	    if self.NE2001:
-		n	= density_2001(x_HC2GC(s,self.l,self.b,self.d),y_HC2GC(s,self.l,self.b,self.d),z_HC2GC(s,self.l,self.b,self.d))
-		if n >= 0:	# computation succeeded
-		    self.n = n
-	    B,Babs	= self.Bgmf_calc(s)
-	    Bs, Bt, Bu	= GC2HCproj(B, s, self.l, self.b,self.d)	# Compute Bgmf and the projection to HC coordinates (s,b,l)
-	    sb,tb,ub	= HC_base(self.l,self.b)
-	    Btrans	= Bt * tb + Bu * ub				# transverse Component
-	    Btrans_abs	= np.sqrt(Bt**2. + Bu**2.)			# absolute value of transverse Component, needed for Delta_QED
-
-#	    if Btrans_abs:
-#		self.Psin	= np.arccos(Bt/Btrans_abs)				# angle between B and propagation direction, cos(Psi) = < B,s > / |B||s|
-#		if Bu < 0.:
-#		    self.Psin = 2.*np.pi - self.Psin
-#	    else:
-#		self.Psin = 0.
-	    #logging.debug("Integrate Psi: {0:.5f}, Bu: {1:.5f}".format(self.Psin, Bu))
-	    #logging.debug("Integrate: B cos(phi),B sin(phi), Bt, Bu: {0:.3f},{1:.3f},{2:.3f},{3:.3f}".format(Btrans_abs * np.cos(self.Psin), Btrans_abs * np.sin(self.Psin), Bt, Bu))
-
-#	    Bu = np.sin(self.Psin) * Btrans_abs	# doesn't matter results are unchanged
-
-	    #logging.debug("s,Bt,Bu,Btrans: {0:.3f},{1:.3f},{2:.3f},{3:.3f}".format(s,Bt,Bu,Btrans_abs))
-
-	    # Compute the Delta factors
-	    #Delta_ag_t	= Delta_ag_kpc(self.g,np.abs(Bt))
-	    #Delta_ag_u	= Delta_ag_kpc(self.g,np.abs(Bu))
-	    Delta_ag_t	= Delta_ag_kpc(self.g,Bt)
-	    Delta_ag_u	= Delta_ag_kpc(self.g,Bu)
-
-
-	    if Delta_ag_t > pertubation:
-		warnings.warn("Warning: large Delta_ag_t = {0:.5f} detected in Integration at s = {1}".format(Delta_ag_t,s),RuntimeWarning)
-	    if Delta_ag_u > pertubation:
-		warnings.warn("Warning: large Delta_ag_u = {0:.5f} detected in Integration at s = {1}".format(Delta_ag_u,s),RuntimeWarning)
-
-
-	    Delta_a	= Delta_a_kpc(self.m,self.E)
-	    Delta_perp	= Delta_pl_kpc(self.n,self.E) + 2.*Delta_QED_kpc(Btrans_abs,self.E)	# perp goes together with t component
-	    Delta_par 	= Delta_pl_kpc(self.n,self.E) + 3.5*Delta_QED_kpc(Btrans_abs,self.E)	# par goes together with u component
-
-	    #logging.debug("Delta_a, Delta_perp, Delta_par: {0:.5f},{1:.5f},{2:.5f}".format(Delta_a, Delta_perp, Delta_par))
-	    #logging.debug("Delta t,u : {0:.5f},{1:.5f}".format(Delta_ag_t, Delta_ag_u))
-
-	    kernel_t[i] = Delta_ag_t*np.exp(1.j*s*(Delta_a - Delta_perp))	# Compute the kernel for the t polarization 
-	    kernel_u[i] = Delta_ag_u*np.exp(1.j*s*(Delta_a - Delta_par))	# Compute the kernel for the u polarization
-
-	    #logging.debug("s, kernet_t , kernel_u : {0:.3f} {1:.3f} {2:.3f}".format(s,kernel_t[i],kernel_u[i]))
-	    #logging.debug("s, Delta_a - Delta_perp : {0} {1}".format(s,Delta_a - Delta_perp))
-	    #logging.debug("exp t : {0}".format(np.exp(1.j*s*(Delta_a - Delta_perp))))
-
-	m_t = kernel_t*np.conjugate(kernel_t) > 1e-20
-	m_u = kernel_u*np.conjugate(kernel_u) > 1e-20
-	
-	#logging.debug('kernel t,u: {0}, {1}'.format(kernel_t[m_t], kernel_u[m_u]))
-
-	if np.sum(m_t):
-	    I_t = simps(kernel_t[m_t].real,sa[m_t]) + 1.j * simps(kernel_t[m_t].imag,sa[m_t])
-	else:
-	    I_t = 0.
-	if np.sum(m_u):
-	    I_u = simps(kernel_u[m_u].real,sa[m_u]) + 1.j * simps(kernel_u[m_u].imag,sa[m_u])
-	else:
-	    I_u = 0.
-
-	#assert (I_t * np.conjugate(I_t)) == I_t.real**2. + I_t.imag**2.
-	#logging.debug("I t , |I t|^2,u : {0}, {1}".format(I_t,I_t.real**2. + I_t.imag**2.))
-
-	return (I_t * np.conjugate(I_t)).real, (I_u * np.conjugate(I_u)).real, (np.conjugate(I_u) * I_t).real
-
-    def Pag(self, E, ra, dec, pol_t = -1 , pol_u = -1):
-	"""
-	compute the line of sight integral of ALPs - Conversion probability,
-	I_{t/u} = | \int_0^{s_\mathrm{max}} \mathrm{d}s \Delta_{a\gamma}^{t/u}(s) \exp(i(\Delta_a(s) - \Delta_{|| / \perp}(s))s) |^2
-
-	Parameters
-	-----------
-	E: float, Energy in GeV
-	ra, dec: float, float, coordinates of the source in degrees
-	pol_t: float, polarization of t direction (optional)
-	pol_u: float, polarization of u direction (optional)
-
-	Returns
-	-------
-	Pag: float, photon ALPs conversion probability
-
-	Notes
-	-----
-	(1) See Mirizzi, Raffelt & Serpico (2007)
-	(2) and Simet, Hooper and Serpico (2008)
-	(3) and my theory lab book p. 149f
-	"""
-	self.set_coordinates(ra,dec)
-	self.E		= E
-	if pol_t > 0.:
-	    self.pol_t	= pol_t
-	if pol_u > 0.:
-	    self.pol_u	= pol_u
-
-	It, Iu, ItIu = self.integrate_los()
-
-	# This is a hack - what to do if results largen than one? Pertubation theory not applicable?
-	# I think my Integration
-#	if It > 1:
-#	    It = 1.
-#	if Iu > 1:
-#	    Iu = 1.
-#	if ItIu > 1:
-#	    ItIu = 1.
-	    
-	return self.pol_t ** 2. * It + self.pol_u ** 2. * Iu		# (1) - Eq. A23
-	#return 2. * (pol_t ** 2. * It + pol_u ** 2. * Iu)	# (2) - Eq. 1
-	#return (pol_t ** 2. + pol_u ** 2.) * (pol_t ** 2. * It + pol_u ** 2. * Iu + 2.*pol_u*pol_t*ItIu)	# (3) - p.149f
     def Pag_TM(self, E, ra, dec, pol, pol_final = None):
 	"""
 	Compute the conversion probability using the Transfer matrix formalism
@@ -331,19 +191,57 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	Returns
 	-------
 	Pag: float, photon ALPs conversion probability
-
-	Notes
-	-----
 	"""
-	self.set_coordinates(ra,dec)
+
+	self.__set_coordinates(ra,dec)
 	self.E	= E
+
 	# first domain is that one farthest away from us, i.e. that on the edge of the milky way
 	#logging.debug("smax {0:.5f}".format(self.smax))
-	if int(self.smax/self.Lcoh) < 100:	# at least 100 domains
+
+	if int(self.smax/self.Lcoh) < 100:				# at least 100 domains
 	    sa	= np.linspace(self.smax,0., 100,endpoint = False)	# divide distance into smax / Lcoh large cells
 	    self.Lcoh = self.smax / 100.
 	else:
 	    sa	= np.linspace(self.smax,0., int(self.smax/self.Lcoh),endpoint = False)	# divide distance into smax / Lcoh large cells
+
+	# --- Calculate B-field in all domains ---------------------------- #
+	B,Babs	= self.Bgmf_calc(sa)
+	Bs, Bt, Bu	= GC2HCproj(B, sa, self.l, self.b,self.d)	# Compute Bgmf and the projection to HC coordinates (s,b,l)
+	# sb,tb,ub	= HC_base(self.l * np.ones(sa.shape[0]),self.b * np.ones(sa.shape[0]))	#this line is unnecessary
+	# Btrans	= Bt * tb + Bu * ub				# transverse Component, unnecessary as well
+	
+	self.B	= np.sqrt(Bt**2. + Bu**2.)	# Abs value of transverse component in all domains
+	# ----------------------------------------------------------------- #
+
+	# --- Calculate Angle between B in prop direction in all domains -- #
+	self.Nd		= sa.shape[0]
+	self.Psin	= np.zeros(self.Nd)
+	m		= self.B > 0.
+	mu		= Bu[m] < 0.
+	self.Psin[m]	= np.arccos(Bt[m]/self.B[m])
+	(self.Psin[m])[mu]	= 2.*np.pi*np.ones((self.Psin[m])[mu].shape[0]) - (self.Psin[m])[mu]
+
+	self.T1		= np.zeros((3,3,self.Nd),np.complex)
+	self.T2		= np.zeros((3,3,self.Nd),np.complex)
+	self.T3		= np.zeros((3,3,self.Nd),np.complex)
+	self.Un		= np.zeros((3,3,self.Nd),np.complex)
+	# ----------------------------------------------------------------- #
+
+	# --- Calculate density in all domains: ----------------------------#
+	if self.NE2001:
+	    filename = '/nfs/astrop/d6/meyerm/axion_cluster/data/NE2001/smax{0:.1f}_l{1:.1f}_b{2:.1f}_Lcoh{3}.pickle'.format(self.smax,self.l,self.b,self.Lcoh)
+	    try:
+		f = open(filename)		# check if n has already been calculated for this l,b, smax and Lcoh
+		# returns n in cm^-3
+		self.n = pickle.load(f) *1e3		# convert into 1e-3 cm^-3
+		f.close()
+	    except IOError:			# if not already calculated, do it now and save to file with function dl
+		# returns n in cm^-3
+		self.n = dl(sa,self.l,self.b,filename,d=self.d) * 1e3		# convert into 1e-3 cm^-3
+	else:
+	    self.n = self.n * np.ones(self.Nd)
+	# ----------------------------------------------------------------- #
 
 	U 	= np.diag(np.diag(np.ones((3,3), np.complex)))
 
@@ -355,44 +253,6 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	pol_a = np.zeros((3,3),np.complex)
 	pol_a[2,2] += 1.
 
-	if self.NE2001:
-	    filename = '/nfs/astrop/d6/meyerm/axion_cluster/data/NE2001/smax{0:.1f}_l{1:.1f}_b{2:.1f}_Lcoh{3}.pickle'.format(self.smax,self.l,self.b,self.Lcoh)
-	    try:
-		f = open(filename)
-		# returns n in cm^-3
-		n = pickle.load(f) *1e3		# convert into 1e-3 cm^-3
-		f.close()
-	    except IOError:
-		# returns n in cm^-3
-		n = dl(sa,self.l,self.b,filename,d=self.d) * 1e3		# convert into 1e-3 cm^-3
-
-	for i,s in enumerate(sa):
-	    if self.NE2001:
-		self.n = n[i]
-		    
-	    B,Babs	= self.Bgmf_calc(s)
-	    Bs, Bt, Bu	= GC2HCproj(B, s, self.l, self.b,self.d)	# Compute Bgmf and the projection to HC coordinates (s,b,l)
-	    sb,tb,ub	= HC_base(self.l,self.b)
-	    Btrans	= Bt * tb + Bu * ub				# transverse Component
-	    self.B	= np.sqrt(Bt**2. + Bu**2.)
-	    if self.B:
-		self.Psin	= np.arccos(Bt/self.B)			# angle between B and propagation direction, cos(Psi) = < B,s > / |B||s|
-		if Bu < 0.:
-		    self.Psin = 2.*np.pi - self.Psin
-	    else:
-		self.Psin = 0.
-
-	    #logging.debug("Psi: {0:.5f}, Bu: {1:.5f}".format(self.Psin, Bu))
-	    #logging.debug("s,Bt,Bu,Btrans: {0:.3f},{1:.3f},{2:.3f},{3:.3f}".format(s,Bt,Bu,self.B))
-	    #logging.debug("B cos(phi),B sin(phi): {0:.3f},{1:.3f}".format(self.B * np.cos(self.Psin), self.B * np.sin(self.Psin)))
-
-	    #assert np.round(self.B* np.cos(self.Psin),5) == np.round(Bt,5)
-	    #assert np.round(self.B* np.sin(self.Psin),5) == np.round(Bu,5)
-
-	    U = np.dot(U,super(PhotALPs_GMF,self).SetDomainN())							# calculate product of all transfer matrices
-
-	    #logging.debug("s,U : {0}--------------\n{1}\n{2}\n{3}".format(s,Un[0,:],Un[1,:],Un[2,:]))
-	    
 
 	if pol_final == None:
 	    Pt = np.sum(np.diag(np.dot(pol_t,np.dot(U,np.dot(pol,U.transpose().conjugate())))))	#Pt = Tr( pol_t U pol U^\dagger )

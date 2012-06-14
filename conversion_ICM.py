@@ -75,12 +75,12 @@ class PhotALPs_ICM(object):
 	self.Nd		= r_abell / Lcoh	# number of domains, no expansion assumed
 	self.Lcoh	= Lcoh
 	self.E		= E_GeV
-	self.B		= B
+	self.B		= B * np.ones(int(self.Nd))	# assuming a constant B-field over all domains
 	self.g		= g
 	self.m		= m
-	self.n		= n
+	self.n		= n * np.ones(int(self.Nd))	# assuming a constant electron density over all domains
 	self.xi		= g * B			# xi parameter as in IGM case, in kpc
-	self.Psin	= 2. * np.pi * rand(1,int(self.Nd))[0]	# angle between photon propagation on B-field in i-th domain 
+	self.Psin	= 2. * np.pi * rand(1,int(self.Nd))[0]	# angle between photon propagation on B-field in all domains
 	self.T1		= np.zeros((3,3,self.Nd),np.complex)	# Transfer matrices
 	self.T2		= np.zeros((3,3,self.Nd),np.complex)
 	self.T3		= np.zeros((3,3,self.Nd),np.complex)
@@ -104,7 +104,7 @@ class PhotALPs_ICM(object):
 
     def __setDeltas(self):
 	"""
-	Set Deltas of mixing matrix, they do not change over each domain
+	Set Deltas of mixing matrix for each domain
 	
 	Parameters
 	----------
@@ -115,10 +115,10 @@ class PhotALPs_ICM(object):
 	Nothing
 	"""
 
-	self.Dperp	= Delta_pl_kpc(self.n,self.E) + 2.*Delta_QED_kpc(self.B,self.E)
-	self.Dpar	= Delta_pl_kpc(self.n,self.E) + 3.5*Delta_QED_kpc(self.B,self.E)
-	self.Dag	= Delta_ag_kpc(self.g,self.B)
-	self.Da		= Delta_a_kpc(self.m,self.E)
+	self.Dperp	= Delta_pl_kpc(self.n,self.E) + 2.*Delta_QED_kpc(self.B,self.E)		# np.arrays , self.Nd-dim
+	self.Dpar	= Delta_pl_kpc(self.n,self.E) + 3.5*Delta_QED_kpc(self.B,self.E)	# np.arrays , self.Nd-dim
+	self.Dag	= Delta_ag_kpc(self.g,self.B)						# np.array, self.Nd-dim
+	self.Da		= Delta_a_kpc(self.m,self.E) * np.ones(int(self.Nd))			# np.ones, so that it is np.array, self.Nd-dim
 	self.alph	= 0.5 * np.arctan(2. * self.Dag / (self.Dpar - self.Da)) 
 	self.Dosc	= np.sqrt((self.Dpar - self.Da)**2. + 4.*self.Dag**2.)
 
@@ -137,6 +137,7 @@ class PhotALPs_ICM(object):
 	-------
 	Nothing
 	"""
+	# Eigen values are all self.Nd-dimensional
 	self.__setDeltas()
 	self.EW1 = self.Dperp
 	self.EW2 = 0.5 * (self.Dpar + self.Da - self.Dosc)
