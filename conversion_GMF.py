@@ -171,8 +171,8 @@ class PhotALPs_GMF(PhotALPs_ICM):
 
 	Babs = np.sqrt(np.sum(B**2., axis = 0))	# compute overall field strength
 
-	for i,r in enumerate(rho):
-	    logging.debug('rho,phi,z,Babs, Bfield = {0:.2f},{1:.2f},{2:.2f},{3:.2f},{4:30}'.format(rho[i],phi[i],z[i],Babs[i],B[:,i]))
+	#for i,r in enumerate(rho):
+	    #logging.debug('rho,phi,z,Babs, Bfield = {0:.2f},{1:.2f},{2:.2f},{3:.2f},{4:30}'.format(rho[i],phi[i],z[i],Babs[i],B[:,i]))
 
 	return B,Babs
 
@@ -242,6 +242,10 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	    n = self.n[0]
 	    self.n = n * np.ones(self.Nd)
 	# ----------------------------------------------------------------- #
+
+	for i,s in enumerate(sa):
+	    logging.debug("s,B: {0:20.2f},{1:20.2f}{2:20.2f}".format(Bs[i],Bt[i],Bu[i]))
+
 
 	U = super(PhotALPs_GMF,self).SetDomainN()		# calculate product of all transfer matrices
 
