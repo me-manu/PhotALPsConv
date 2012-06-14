@@ -160,14 +160,14 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	phi	= phi_HC2GC(s,l,b,self.d)	# compute phi in GC coordinates for s,l,b
 	z	= z_HC2GC(s,l,b,self.d)	# compute z in GC coordinates for s,l,b
 
-	B = self.Bgmf.Bdisk(rho,phi,z)[0] 	# add all field components
+	#B = self.Bgmf.Bdisk(rho,phi,z)[0] 	# add all field components
 	#B += self.Bgmf.Bhalo(rho,z)[0] 
 	#B += self.Bgmf.BX(rho,z)[0] 
 
 	# Single components for debugging
 	#B = self.Bgmf.Bdisk(rho,phi,z)[0] 	# add all field components
 	#B = self.Bgmf.Bhalo(rho,z)[0] 
-	#B = self.Bgmf.BX(rho,z)[0] 
+	B = self.Bgmf.BX(rho,z)[0] 
 
 	Babs = np.sqrt(np.sum(B**2., axis = 0))	# compute overall field strength
 
