@@ -244,7 +244,7 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	# ----------------------------------------------------------------- #
 
 	for i,Bi in enumerate(self.B):
-	    logging.debug("B,Bt,Psi: {0:20.2f},{1:20.2f},{2:20.2f}".format(Bi,Bt[i],self.Psin[i]))
+	    logging.debug("B,Bt,Bu,Psi: {0:20.2f},{1:20.2f},{2:20.2f},{3:20.2f}".format(Bi,Bt[i],Bu[i],self.Psin[i]))
 
 
 	U = super(PhotALPs_GMF,self).SetDomainN()		# calculate product of all transfer matrices
