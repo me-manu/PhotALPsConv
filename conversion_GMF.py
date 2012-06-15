@@ -217,6 +217,15 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	self.Nd		= sa.shape[0]
 	self.Psin	= np.zeros(self.Nd)
 	m		= self.B > 0.
+
+	# This is how it used to be, but the definition if psi is wrong!
+	# It has to be the angle between the prop. direction and the entire B-field!
+	#self.Psin[m]	= np.arccos(Bt[m]/self.B[m])
+	#mu		= Bu < 0.
+	#self.Psin[mu]	= 2.*np.pi*np.ones(np.sum(mu)) - self.Psin[mu]
+
+	# This is the right definition: 
+	# Psi = arctan( B_transversal / B_along prop. direction)
 	self.Psin[m]	= np.arctan2(self.B[m],Bs[m])	# arctan2 selects the right quadrant
 
 	self.T1		= np.zeros((3,3,self.Nd),np.complex)
