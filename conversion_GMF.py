@@ -217,9 +217,7 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	self.Nd		= sa.shape[0]
 	self.Psin	= np.zeros(self.Nd)
 	m		= self.B > 0.
-	mu		= Bu[m] < 0.
-	self.Psin[m]	= np.arccos(Bt[m]/self.B[m])
-	#(self.Psin[m])[mu]	= 2.*np.pi*np.ones((self.Psin[m])[mu].shape[0]) - (self.Psin[m])[mu]
+	self.Psin[m]	= np.arctan2(self.B[m],Bs[m])	# arctan2 selects the right quadrant
 
 	self.T1		= np.zeros((3,3,self.Nd),np.complex)
 	self.T2		= np.zeros((3,3,self.Nd),np.complex)
