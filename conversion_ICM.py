@@ -54,7 +54,8 @@ class PhotALPs_ICM(object):
     For Photon - ALP mixing theory see e.g. De Angelis et al. 2011 
     http://adsabs.harvard.edu/abs/2011PhRvD..84j5030D
     """
-    def __init__(self, Lcoh=10., B=1., r_abell=1500.*h , E_GeV = 1000., g = 1., m = 1., n = 1.):
+    def __init__(self, Lcoh=10., B=1., r_abell=1500.*h , E_GeV = 1000., g = 1., m = 1., n = 1., 
+		Bn_const = True, r_core = 200.,beta = 2./3., eta = 1.):
 	"""
 	init photon axion conversion in intracluster medium
 
@@ -66,19 +67,38 @@ class PhotALPs_ICM(object):
 	g:		Photon ALP coupling in 10^{-11} GeV^-1, default: 1.
 	m:		ALP mass in neV, default: 1.
 	n:		thermal electron density in the cluster, in 10^{-3} cm^-3, default: 1.
+	Bn_const:	boolean, if True n and B are constant all over the cluster
+			if False than B and n are modeled, see notes
+	r_core:		Core radius for n and B modeling in kpc, default: 200 kpc
+	beta:		power of n dependence, default: 2/3
+	eta:		power with what B follows n, see Notes. Typical values: 0.5 <= eta <= 1. default: 1.
 
 	Returns
 	-------
 	Nothing.
+
+	Notes
+	-----
+	if Bn_const = False then electron density is modeled according to Carilli & Taylor (2002) Eq. 2:
+	    n_e(r)  = n * (1 - (r/r_core)**2.)**(-3/2*beta)
+	with typical values of r_core = 200 kpc and beta = 2/3.
+	The magnetic field is supposed to follow n_e(r) with (Feretti et al. 2012, p. 41, section 7.1)
+	    B(r) = B * (n_e(r)/n) ** eta
+	with typical values 1 muG <= B <= 15muG and 0.5 <= eta <= 1
 	"""
 
 	self.Nd		= r_abell / Lcoh	# number of domains, no expansion assumed
 	self.Lcoh	= Lcoh
 	self.E		= E_GeV
-	self.B		= B * np.ones(int(self.Nd))	# assuming a constant B-field over all domains
 	self.g		= g
 	self.m		= m
-	self.n		= n * np.ones(int(self.Nd))	# assuming a constant electron density over all domains
+	if Bn_const:
+	    self.n		= n * np.ones(int(self.Nd))	# assuming a constant electron density over all domains
+	    self.B		= B * np.ones(int(self.Nd))	# assuming a constant B-field over all domains
+	else:
+	    r	= np.linspace(Lcoh, r_abell + Lcoh, int(self.Nd))
+	    self.n = n * (np.ones(int(self.Nd)) + r**2./r_core**2.)**(-1.5 * beta)
+	    self.B = B * (self.n/n)**eta
 	self.xi		= g * B			# xi parameter as in IGM case, in kpc
 	self.Psin	= 2. * np.pi * rand(1,int(self.Nd))[0]	# angle between photon propagation on B-field in all domains
 	self.T1		= np.zeros((3,3,self.Nd),np.complex)	# Transfer matrices
