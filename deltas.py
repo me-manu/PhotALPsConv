@@ -53,6 +53,66 @@ Delta_QED_Mpc= lambda B,E: 4.1e-9*E*B**2.
 #returns Delta in kpc^-1
 Delta_QED_kpc= lambda B,E: 4.1e-9*E*B**2.
 
+def Delta_Osc_kpc(m,n,g,B,E): 
+    """
+    Compute Delta Osc
+
+    Parameters
+    ----------
+    m: ALP mass, scalar
+    n: el. density in 10^-3 cm^-3, n-dim array
+    g: photon-ALP coyupling strength, scalar
+    B: magnetic field in muG, n-dim array
+    E: energy in GeV, m-dim array
+
+    Returns
+    -------
+    Delta_osc as mxn-dim array in kpc
+    """
+    if np.isscalar(E):
+	E = np.array([E])
+    if np.isscalar(B):
+	B = np.array([B])
+    if np.isscalar(n):
+	n = np.array([n])
+    if not B.shape[0] == n.shape[0]:
+	raise ValueError("B and n array have to have the same shape. B.shape: {0}, n.shape: {1}".format(B.shape[0],n.shape[0]))
+    result = -7.8e-2 * m ** 2. * (np.ones((E.shape[0],B.shape[0])).transpose()/E).transpose()	# Delta_a as ExB-shaped matrix
+    result -= -1.1e-7*((np.ones((E.shape[0],B.shape[0]))*n).transpose()/E).transpose()		# Delta_pl as ExB-shaped matrix
+    result *= result
+    result += 4. * np.ones((E.shape[0],B.shape[0]))* (1.52e-2*g*B)**2.
+    return np.sqrt(result)
+
+def Delta_Osc_Mpc(m,n,g,B,E): 
+    """
+    Compute Delta Osc
+
+    Parameters
+    ----------
+    m: ALP mass, scalar
+    n: el. density in 10^-7 cm^-3, n-dim array
+    g: photon-ALP coyupling strength, scalar
+    B: magnetic field in nG, n-dim array
+    E: energy in TeV, m-dim array
+
+    Returns
+    -------
+    Delta_osc as mxn-dim array in Mpc
+    """
+    if np.isscalar(E):
+	E = np.array([E])
+    if np.isscalar(B):
+	B = np.array([B])
+    if np.isscalar(n):
+	n = np.array([n])
+    if not B.shape[0] == n.shape[0]:
+	raise ValueError("B and n array have to have the same shape. B.shape: {0}, n.shape: {1}".format(B.shape[0],n.shape[0]))
+    result = -7.8e-4 * m ** 2. * (np.ones((E.shape[0],B.shape[0])).transpose()/E).transpose()	# Delta_a as ExB-shaped matrix
+    result -= -1.1e-11*((np.ones((E.shape[0],B.shape[0]))*n).transpose()/E).transpose()		# Delta_pl as ExB-shaped matrix
+    result *= result
+    result += 4. * np.ones((E.shape[0],B.shape[0]))* (1.52e-2*g*B)**2.
+    return np.sqrt(result)
+
 #Plasma freq in 10^-10 eV
 #n is electron density in 10^-7 cm^-3
 w_pl_e10 = lambda n: 1.17e-4*np.sqrt(n)

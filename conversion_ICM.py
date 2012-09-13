@@ -87,7 +87,7 @@ class PhotALPs_ICM(object):
 	with typical values 1 muG <= B <= 15muG and 0.5 <= eta <= 1
 	"""
 
-	self.Nd		= r_abell / Lcoh	# number of domains, no expansion assumed
+	self.Nd		= int(r_abell / Lcoh)	# number of domains, no expansion assumed
 	self.Lcoh	= Lcoh
 	self.E		= E_GeV
 	self.g		= g

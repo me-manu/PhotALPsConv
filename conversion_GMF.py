@@ -91,7 +91,7 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	self.NE2001	= NE2001
 
 
-	self.E		= 0.	# Energy an GeV
+	self.E		= 0.	# Energy in GeV
 	self.Bgmf = gmf.GMF()	# Initialize the Bfield the class
 
 	return

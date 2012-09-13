@@ -17,6 +17,7 @@ from eblstud.misc.constants import *
 from numpy.random import rand, seed
 import logging
 import warnings
+from deltas import *
 
 def Tau_Giorgio(z,E):
     """
@@ -68,6 +69,7 @@ class PhotALPs(object):
     T2		= Transfer matrix 2
     T3		= Transfer matrix 3
     Un		= Total transfermatrix in n-th domain
+    ebl_norm	= normalization of optical depth
 
     Notes
     -----
@@ -75,7 +77,7 @@ class PhotALPs(object):
     http://adsabs.harvard.edu/abs/2011PhRvD..84j5030D
     """
 
-    def __init__(self, z, B0 = 1., Ldom1=5., g = 1., model='kneiske',filename='None'):
+    def __init__(self, z, B0 = 1., Ldom1=5., g = 1., m = 1., n = 1., model='kneiske',ebl_norm = 1.,filename='None'):
 	"""
 	Init photon-ALPs conversion class with 
 
@@ -86,6 +88,9 @@ class PhotALPs(object):
 	B0: intergalactic magnetic field at z=0 in nG, default: 1
 	g : photon-ALPs coupling strength in 10^-11 GeV^-1, default: 1
 	model: EBL model to be used, default: 'kneiske'
+	ebl_norm: additional normalization of optical depth, default: 1
+	m : ALP mass in neV, default is 1. (only for energy dependent calculation)
+	n : electron density in 10^7, default is 1. (only for energy dependent calculation)
 
 	Returns
 	-------
@@ -94,7 +99,11 @@ class PhotALPs(object):
 	self.Ld = Ldom1
 	self.B0 = B0
 	self.xi = B0 * g
+	self.g  = g
+	self.m  = m
+	self.n0 = n
 	self.dz = 1.17e-3 * self.Ld / 5.
+	self.ebl_norm = ebl_norm
 
 	self.tau = Tau.OptDepth()
 	#self.mfn = MFN.MFNModel(file_name='/home/manuel/projects/blazars/EBLmodelFiles/mfn_kneiske.dat.gz', model = 'kneiske')
@@ -258,14 +267,15 @@ class PhotALPs(object):
 
 	self.Ln	= 4.29e3*self.dz / (ones + 1.45*(n - ones)*self.dz)
 
-	mfn	= self.Ln / difftau 
+	mfn	= self.Ln / difftau / self.ebl_norm 
 
 	#mfn = self.mfn.get_mfn(n*self.dz , self.E0)*100./Mpc2cm
 	# What's right? Alessandro (1) or Cssaki (2) et al.? 
 	# The (1 + z)**2 factor comes from the B-field scaling
 	#self.dn = 3.04e-2*self.xi*mfn*(1. + (n-1.)*self.dz)**2.
+	self.dn = 3.04e-2*self.xi*mfn*(ones + (n-ones)*self.dz)**2.
 
-	self.dn	= 0.11*self.xi*mfn*(ones + (n-ones)*self.dz)**2.
+	#self.dn	= 0.11*self.xi*mfn*(ones + (n-ones)*self.dz)**2.
 	self.Dn	= ones - 4.*self.dn**2. + 0.j*ones
 	self.Dn	= np.sqrt(self.Dn)
 	self.EW1n = -0.5 / mfn 
@@ -277,6 +287,159 @@ class PhotALPs(object):
 	self.__SetT3n()
 
 	self.__SetUn()
+	for i in range(self.Nd):
+	    if not i:
+		U = self.Un[:,:,i]
+	    else:
+		U = np.dot(self.Un[:,:,i],U)
+	return U
+
+#--- Energy dependent calculations -------------------------------------------------#
+    def __SetT1n_E(self):
+	"""
+	Set T1 in all domains for energy dependent calculation (stron mixing regime not required)
+	
+	Parameters
+	----------
+	None (self only)
+
+	Returns
+	-------
+	Nothing
+	"""
+	s = np.sin(self.Psin)
+	c = np.cos(self.Psin)
+	self.T1[0,0,:] = c*c 
+	self.T1[0,1,:] = -1.*s*c
+	self.T1[1,0,:] = self.T1[0,1]
+	self.T1[1,1,:] = s*s
+	return
+
+    def __SetT2n_E(self):
+	"""
+	Set T2 in all domains for energy dependent calculation (stron mixing regime not required)
+	
+	Parameters
+	----------
+	None (self only)
+
+	Returns
+	-------
+	Nothing
+	"""
+	s = np.sin(self.Psin)
+	c = np.cos(self.Psin)
+	self.T2[0,0,:] = 0.5* (self.delta_aa_n - self.delta_par_n - self.delta_abs_n + self.Dn) / self.Dn * s*s
+	self.T2[0,1,:] = 0.5* (self.delta_aa_n - self.delta_par_n - self.delta_abs_n + self.Dn) / self.Dn * s*c
+	self.T2[0,2,:] = -1. *  self.delta_ag_n / self.Dn * s
+	self.T2[1,0,:] = self.T2[0,1]
+	self.T2[2,0,:] = self.T2[0,2]
+
+	self.T2[1,1,:] = 0.5* (self.delta_aa_n - self.delta_par_n - self.delta_abs_n + self.Dn) / self.Dn * c*c
+	self.T2[1,2,:] = -1. * self.delta_ag_n / self.Dn * c
+	self.T2[2,1,:] = self.T2[1,2]
+
+	self.T2[2,2,:] = 0.5* (-1. * self.delta_aa_n + self.delta_par_n + self.delta_abs_n +self.Dn) / self.Dn
+	return 
+
+    def __SetT3n_E(self):
+	"""
+	Set T3 in all domains for energy dependent calculation (stron mixing regime not required)
+	
+	Parameters
+	----------
+	None (self only)
+
+	Returns
+	-------
+	Nothing
+	"""
+	s = np.sin(self.Psin)
+	c = np.cos(self.Psin)
+
+	self.T3[0,0,:] = 0.5* (-1. * self.delta_aa_n + self.delta_par_n + self.delta_abs_n +self.Dn) / self.Dn * s*s
+	self.T3[0,1,:] = 0.5* (-1. * self.delta_aa_n + self.delta_par_n + self.delta_abs_n +self.Dn) / self.Dn * s*c
+	self.T3[0,2,:] = self.delta_ag_n / self.Dn * s
+	self.T3[1,0,:] = self.T3[0,1]
+	self.T3[2,0,:] = self.T3[0,2]
+
+	self.T3[1,1,:] = 0.5* (-1. * self.delta_aa_n + self.delta_par_n + self.delta_abs_n +self.Dn) / self.Dn * c*c
+	self.T3[1,2,:] = self.delta_ag_n / self.Dn * c
+	self.T3[2,1,:] = self.T3[1,2]
+
+	self.T3[2,2,:] = 0.5 * (self.delta_aa_n - self.delta_par_n - self.delta_abs_n +self.Dn) / self.Dn
+
+	return 
+
+    def __SetUn_E(self):
+	"""
+	Set Transfer Matrix Un in all domains for energy dependent calculation (no stron mixing regime required)
+	
+	Parameters
+	----------
+	None (self only)
+
+	Returns
+	-------
+	Nothing
+	"""
+	self.Un = np.exp(1.j*self.EW1n* self.Ln) * self.T1 \
+	    + np.exp(1.j*self.EW2n* self.Ln) * self.T2 \
+	    + np.exp(1.j*self.EW3n* self.Ln) * self.T3 
+	return
+
+    def SetDomainN_E(self):
+	"""
+	Set domain length, energy, magnetic field, mean free path and delta in all domains 
+	and calculate total transfer matrix, with energy dependence included (strong mixing regime not required)
+
+	Parameters
+	----------
+	n:	Number of domain, 0 < n <= self.Nd
+
+	Returns:
+	--------
+	U:	3x3 complex numpy array with total transfer matrix 
+	"""
+
+	ones	= np.ones(self.Nd)
+	n	= np.array(range(1,self.Nd+1))
+	En	= self.E0*(ones + (n-ones)*self.dz)		# Energy in all domains
+	Bn	= self.B0*(ones + (n-ones)*self.dz)**2.		# B-field in all domains
+	neln	= self.n0*(ones + (n-ones)*self.dz)**3.		# electron density in all domains
+
+	# calculate mean free path according to De Angelis et al. Eq 131
+	difftau	= (self.tau.opt_depth_array(n*self.dz , self.E0) - self.tau.opt_depth_array((n-ones)*self.dz , self.E0)).transpose()[0]
+	difftau[difftau < 1e-20] = np.ones(len(difftau < 1e-20)) * 1e-20	# set to 1e-20 if difference is smaller
+
+	self.Ln	= 4.29e3*self.dz / (ones + 1.45*(n - ones)*self.dz)
+
+	mfn	= self.Ln / difftau / self.ebl_norm 	# mean free path
+
+	delta_pl_n		= Delta_pl_Mpc(neln,En)
+	delta_QED_n		= Delta_QED_Mpc(Bn,En)
+	self.delta_par_n	= delta_pl_n + 3.5 * delta_QED_n
+	self.delta_perp_n	= delta_pl_n + 2.* delta_QED_n
+	self.delta_aa_n		= Delta_a_Mpc(self.m,En)
+	self.delta_ag_n		= Delta_ag_Mpc(self.g,Bn)
+	self.delta_abs_n	= 0.5j/mfn
+
+### DEBUG
+	#self.delta_par_n	= 0. * ones
+	#self.delta_perp_n	= 0. * ones
+	#self.delta_aa_n	= 0. * ones
+###
+	self.Dn	= np.sqrt((self.delta_aa_n - self.delta_par_n - self.delta_abs_n) ** 2. + 4.*self.delta_ag_n**2.)
+
+	self.EW1n = self.delta_perp_n + self.delta_abs_n
+	self.EW2n = 0.5 * (self.delta_aa_n + self.delta_par_n + self.delta_abs_n - self.Dn)
+	self.EW3n = 0.5 * (self.delta_aa_n + self.delta_par_n + self.delta_abs_n + self.Dn)
+
+	self.__SetT1n_E()
+	self.__SetT2n_E()
+	self.__SetT3n_E()
+
+	self.__SetUn_E()
 	for i in range(self.Nd):
 	    if not i:
 		U = self.Un[:,:,i]
