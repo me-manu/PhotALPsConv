@@ -1,29 +1,38 @@
 """
 Class for the calculation of photon-ALPs conversion
+in intergalactic magnetic field
 
 History:
 - 11/15/11: created
-- 05/08/12: adding reconversion in galactic magnetic field (GMF)
+- 07/18/13: updated and cleaned up
 """
-__version__=0.02
+__version__=0.03
 __author__="M. Meyer // manuel.meyer@physik.uni-hamburg.de"
 
 
 import numpy as np
 from math import ceil
 import eblstud.ebl.tau_from_model as Tau
-from eblstud.ebl import mfn_model as MFN
 from eblstud.misc.constants import *
 from numpy.random import rand, seed
 import logging
 import warnings
 from deltas import *
 
-def Tau_Giorgio(z,E):
+def Tau_Fit(z,E):
     """
     Tau calculation by Giorgio Galanti
     Fit to Franceschini Model
     E in eV
+
+    Parameters
+    ----------
+    z: float, redshift
+    E: float, energy in eV
+
+    Returns
+    -------
+    Optical depth from Franceschini et al. (2008)
     """
     a00=29072.8078002930
     a01=-12189.9033508301
@@ -96,6 +105,7 @@ class PhotALPs(object):
 	-------
 	Nothing
 	"""
+
 	self.Ld = Ldom1
 	self.B0 = B0
 	self.xi = B0 * g
@@ -106,7 +116,6 @@ class PhotALPs(object):
 	self.ebl_norm = ebl_norm
 
 	self.tau = Tau.OptDepth()
-	#self.mfn = MFN.MFNModel(file_name='/home/manuel/projects/blazars/EBLmodelFiles/mfn_kneiske.dat.gz', model = 'kneiske')
 
 	if filename == 'None':
 	    self.tau.readfile(model = model)
@@ -261,7 +270,7 @@ class PhotALPs(object):
 	En	= self.E0*(ones + (n-ones)*self.dz)
 	Bn	= self.B0*(ones + (n-ones)*self.dz)**2.
 
-	# calculate mean free path according to De Angelis et al. Eq 131
+	# calculate mean free path according to De Angelis et al. (2011) Eq. 131
 	difftau	= (self.tau.opt_depth_array(n*self.dz , self.E0) - self.tau.opt_depth_array((n-ones)*self.dz , self.E0)).transpose()[0]
 	difftau[difftau < 1e-20] = np.ones(len(difftau < 1e-20)) * 1e-20	# set to 1e-20 if difference is smaller
 
@@ -269,13 +278,9 @@ class PhotALPs(object):
 
 	mfn	= self.Ln / difftau / self.ebl_norm 
 
-	#mfn = self.mfn.get_mfn(n*self.dz , self.E0)*100./Mpc2cm
-	# What's right? Alessandro (1) or Cssaki (2) et al.? 
 	# The (1 + z)**2 factor comes from the B-field scaling
-	#self.dn = 3.04e-2*self.xi*mfn*(1. + (n-1.)*self.dz)**2.
 	self.dn = 3.04e-2*self.xi*mfn*(ones + (n-ones)*self.dz)**2.
 
-	#self.dn	= 0.11*self.xi*mfn*(ones + (n-ones)*self.dz)**2.
 	self.Dn	= ones - 4.*self.dn**2. + 0.j*ones
 	self.Dn	= np.sqrt(self.Dn)
 	self.EW1n = -0.5 / mfn 
@@ -408,7 +413,7 @@ class PhotALPs(object):
 	Bn	= self.B0*(ones + (n-ones)*self.dz)**2.		# B-field in all domains
 	neln	= self.n0*(ones + (n-ones)*self.dz)**3.		# electron density in all domains
 
-	# calculate mean free path according to De Angelis et al. Eq 131
+	# calculate mean free path according to De Angelis et al. (2011) Eq. 131
 	difftau	= (self.tau.opt_depth_array(n*self.dz , self.E0) - self.tau.opt_depth_array((n-ones)*self.dz , self.E0)).transpose()[0]
 	difftau[difftau < 1e-20] = np.ones(len(difftau < 1e-20)) * 1e-20	# set to 1e-20 if difference is smaller
 

@@ -11,20 +11,18 @@ __author__="M. Meyer // manuel.meyer@physik.uni-hamburg.de"
 import numpy as np
 from math import ceil
 import eblstud.ebl.tau_from_model as Tau
-from eblstud.ebl import mfn_model as MFN
 from eblstud.misc.constants import *
 from PhotALPsConv.conversion_ICM import PhotALPs_ICM
 import logging
 import warnings
 import pickle
+import subprocess,os,glob
 # --- Conversion in the galactic magnetic field ---------------------------------------------------------------------#
 from gmf import gmf
 from gmf.trafo import *
 from kapteyn import wcs
 from scipy.integrate import simps
 from gmf.ne2001 import density_2001_los as dl
-
-pertubation = 0.10	# Limit for pertubation theory to be valid
 
 class PhotALPs_GMF(PhotALPs_ICM):
     """
@@ -74,8 +72,9 @@ class PhotALPs_GMF(PhotALPs_ICM):
 
 	Returns
 	-------
-	None.
+	Nothing.
 	"""
+
 	# ALP parameters g,m,n: already provided in super call
 	super(PhotALPs_GMF,self).__init__(g = g, m = m, n = n, Lcoh = Lcoh)	#Inherit everything from PhotALPs_ICM
 
@@ -119,15 +118,16 @@ class PhotALPs_GMF(PhotALPs_ICM):
 
 	# Transformation RA, DEC -> L,B
 	tran = wcs.Transformation("EQ,fk5,J2000.0", "GAL")
-	self.l,self.b = tran.transform((ra,dec))
+	self.l,self.b = tran.transform((ra,dec)) # return galactic coordinates in degrees
+	self.l *= np.pi / 180.	# transform to radian
+	self.b *= np.pi / 180.	# transform to radian
 	d = self.d
 
-	if self.galactic < 0.:
+	if self.galactic < 0.:	# if source is extragalactic, calculate maximum distance that beam traverses GMF to Earth
 	    cl = np.cos(self.l)
 	    cb = np.cos(self.b)
 	    sb = np.sin(self.b)
 	    self.smax = np.amin([self.zmax/np.abs(sb),1./np.abs(cb) * (-d*cl + np.sqrt(d**2 + cl**2 - d**2*cb + self.rho_max**2))])
-	    #logging.debug("l,b,cl,cb,sb,smax: {0:.3f},{1:.3f},{2:.3f},{3:.3f},{4:.3f},{5:.3f}".format(self.l,self.b,cl,cb,sb,self.smax))
 	else:
 	    self.smax = self.galactic
 
@@ -158,21 +158,18 @@ class PhotALPs_GMF(PhotALPs_ICM):
 
 	rho	= rho_HC2GC(s,l,b,self.d)	# compute rho in GC coordinates for s,l,b
 	phi	= phi_HC2GC(s,l,b,self.d)	# compute phi in GC coordinates for s,l,b
-	z	= z_HC2GC(s,l,b,self.d)	# compute z in GC coordinates for s,l,b
+	z	= z_HC2GC(s,l,b,self.d)		# compute z in GC coordinates for s,l,b
 
 	B = self.Bgmf.Bdisk(rho,phi,z)[0] 	# add all field components
 	B += self.Bgmf.Bhalo(rho,z)[0] 
 	B += self.Bgmf.BX(rho,z)[0] 
 
-	# Single components for debugging
-	#B = self.Bgmf.Bdisk(rho,phi,z)[0] 	# add all field components
+	### Single components for debugging ###
+	#B = self.Bgmf.Bdisk(rho,phi,z)[0] 	
 	#B = self.Bgmf.Bhalo(rho,z)[0] 
 	#B = self.Bgmf.BX(rho,z)[0] 
 
 	Babs = np.sqrt(np.sum(B**2., axis = 0))	# compute overall field strength
-
-	#for i,r in enumerate(rho):
-	    #logging.debug('rho,phi,z,Babs, Bfield = {0:.2f},{1:.2f},{2:.2f},{3:.2f},{4:30}'.format(rho[i],phi[i],z[i],Babs[i],B[:,i]))
 
 	return B,Babs
 
@@ -182,12 +179,13 @@ class PhotALPs_GMF(PhotALPs_ICM):
 
 	Parameters
 	----------
-	E: float, Energy in GeV
-	ra, dec: float, float, coordinates of the source in degrees
-	pol: np.array((3,3)): 3x3 matrix of the initial polarization
-	Lcoh (optional): float, cell size
-	pol_final (optional): np.array((3,3)): 3x3 matrix of the final polarization
-	if none, results for final polarization in t,u and ALPs direction are returned
+	E:		 	 float, Energy in GeV
+	ra, dec:  		 float, float, coordinates of the source in degrees
+	pol:			 np.array((3,3)): 3x3 matrix of the initial polarization
+	Lcoh (optional):	 float, cell size
+	pol_final (optional):	 np.array((3,3)): 3x3 matrix of the final polarization
+				 if none, results for final polarization 
+				 in t,u and ALPs direction are returned
 
 	Returns
 	-------
@@ -204,11 +202,10 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	else:
 	    sa	= np.linspace(self.smax,0., int(self.smax/self.Lcoh),endpoint = False)	# divide distance into smax / Lcoh large cells
 
+	self.s = sa
 	# --- Calculate B-field in all domains ---------------------------- #
 	B,Babs	= self.Bgmf_calc(sa)
 	Bs, Bt, Bu	= GC2HCproj(B, sa, self.l, self.b,self.d)	# Compute Bgmf and the projection to HC coordinates (s,b,l)
-	# sb,tb,ub	= HC_base(self.l * np.ones(sa.shape[0]),self.b * np.ones(sa.shape[0]))	#this line is unnecessary
-	# Btrans	= Bt * tb + Bu * ub				# transverse Component, unnecessary as well
 	
 	self.B	= np.sqrt(Bt**2. + Bu**2.)	# Abs value of transverse component in all domains
 	# ----------------------------------------------------------------- #
@@ -218,13 +215,7 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	self.Psin	= np.zeros(self.Nd)
 	m		= self.B > 0.
 
-	# This is how it used to be, but the definition if psi is wrong!
-	# It has to be the angle between the prop. direction and the entire B-field!
-	#self.Psin[m]	= np.arccos(Bt[m]/self.B[m])
-	#mu		= Bu < 0.
-	#self.Psin[mu]	= 2.*np.pi*np.ones(np.sum(mu)) - self.Psin[mu]
 
-	# This is the right definition: 
 	# Psi = arctan( B_transversal / B_along prop. direction)
 	self.Psin[m]	= np.arctan2(self.B[m],Bs[m])	# arctan2 selects the right quadrant
 
@@ -237,6 +228,11 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	# --- Calculate density in all domains: ----------------------------#
 	if self.NE2001:
 	    filename = '/nfs/astrop/d6/meyerm/axion_cluster/data/NE2001/smax{0:.1f}_l{1:.1f}_b{2:.1f}_Lcoh{3}.pickle'.format(self.smax,self.l,self.b,self.Lcoh)
+	    if not (os.environ['HOST'] == 'astro-wgs02' or os.environ['HOST'] == 'uh2ulastro15'):
+		if not len(glob.glob('./' + filename.split('/')[-1])):
+		    subprocess.call(['cp',filename,'./'])
+		    logging.info('copied NE2001 file {0} to tmdir'.format(filename))
+		filename = './' + filename.split('/')[-1]
 	    try:
 		f = open(filename)		# check if n has already been calculated for this l,b, smax and Lcoh
 		# returns n in cm^-3
@@ -249,6 +245,7 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	    n = self.n[0]
 	    self.n = n * np.ones(self.Nd)
 	# ----------------------------------------------------------------- #
+	self.n[self.n == 0.] = 1e-4 * np.ones(np.sum(self.n == 0.))
 
 #	for i,Bi in enumerate(self.B):
 #	    logging.debug("B,Bt,Bu,Psi: {0:20.2f},{1:20.2f},{2:20.2f},{3:20.2f}".format(Bi,Bt[i],Bu[i],self.Psin[i]))

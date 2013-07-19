@@ -3,15 +3,15 @@ Class for the calculation of photon-ALPs conversion in galaxy clusters
 
 History:
 - 06/01/12: created
+- 07/18/13: cleaned up
 """
-__version__=0.01
+__version__=0.02
 __author__="M. Meyer // manuel.meyer@physik.uni-hamburg.de"
 
 
 import numpy as np
 from math import ceil
 import eblstud.ebl.tau_from_model as Tau
-from eblstud.ebl import mfn_model as MFN
 from eblstud.misc.constants import *
 import logging
 import warnings
@@ -51,8 +51,9 @@ class PhotALPs_ICM(object):
 
     Notes
     -----
-    For Photon - ALP mixing theory see e.g. De Angelis et al. 2011 
+    For Photon - ALP mixing theory see e.g. De Angelis et al. 2011 and also Horns et al. 2012
     http://adsabs.harvard.edu/abs/2011PhRvD..84j5030D
+    http://adsabs.harvard.edu/abs/2012PhRvD..86g5024H
     """
     def __init__(self, Lcoh=10., B=1., r_abell=1500.*h , E_GeV = 1000., g = 1., m = 1., n = 1., 
 		Bn_const = True, r_core = 200.,beta = 2./3., eta = 1.):
@@ -61,7 +62,7 @@ class PhotALPs_ICM(object):
 
 	Parameters
 	----------
-	Lcoh:	coherence length / domain size of turbulent B-field in the cluster in kpc, default: 10 kpc
+	Lcoh:		coherence length / domain size of turbulent B-field in the cluster in kpc, default: 10 kpc
 	B:		field strength of transverse component of the cluster B-field, in muG, default: 1 muG
 	r_abell:	size of cluster filled with the constant B-field in kpc. default: 1500 * h
 	g:		Photon ALP coupling in 10^{-11} GeV^-1, default: 1.
@@ -79,9 +80,11 @@ class PhotALPs_ICM(object):
 
 	Notes
 	-----
-	if Bn_const = False then electron density is modeled according to Carilli & Taylor (2002) Eq. 2:
+
+	If Bn_const = False then electron density is modeled according to Carilli & Taylor (2002) Eq. 2:
 	    n_e(r)  = n * (1 - (r/r_core)**2.)**(-3/2*beta)
 	with typical values of r_core = 200 kpc and beta = 2/3.
+
 	The magnetic field is supposed to follow n_e(r) with (Feretti et al. 2012, p. 41, section 7.1)
 	    B(r) = B * (n_e(r)/n) ** eta
 	with typical values 1 muG <= B <= 15muG and 0.5 <= eta <= 1
@@ -142,7 +145,6 @@ class PhotALPs_ICM(object):
 	self.alph	= 0.5 * np.arctan(2. * self.Dag / (self.Dpar - self.Da)) 
 	self.Dosc	= np.sqrt((self.Dpar - self.Da)**2. + 4.*self.Dag**2.)
 
-	#logging.debug("Dperp, Dpar, Dag, Da, alph, Dosc: {0:.2e} {1:.2e} {2:.2e} {3:.2e} {4:.2e} {5:.2e}".format(self.Dperp, self.Dpar, self.Dag, self.Da, self.alph, self.Dosc))
 	return
 
     def __setEW(self):
@@ -282,6 +284,5 @@ class PhotALPs_ICM(object):
 	    if not i:
 		U = self.Un[:,:,i]
 	    else:
-		#U = np.dot(self.Un[:,:,i],U)	# first matrix on the right
 		U = np.dot(U,self.Un[:,:,i])	# first matrix on the left
 	return U

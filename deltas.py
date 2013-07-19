@@ -59,7 +59,7 @@ def Delta_Osc_kpc(m,n,g,B,E):
 
     Parameters
     ----------
-    m: ALP mass, scalar
+    m: ALP mass, scalar, in neV
     n: el. density in 10^-3 cm^-3, n-dim array
     g: photon-ALP coyupling strength, scalar
     B: magnetic field in muG, n-dim array
@@ -67,7 +67,7 @@ def Delta_Osc_kpc(m,n,g,B,E):
 
     Returns
     -------
-    Delta_osc as mxn-dim array in kpc
+    Delta_osc as mxn-dim array in kpc^-1
     """
     if np.isscalar(E):
 	E = np.array([E])
@@ -89,15 +89,15 @@ def Delta_Osc_Mpc(m,n,g,B,E):
 
     Parameters
     ----------
-    m: ALP mass, scalar
+    m: ALP mass, scalar, in 10^-10 eV
     n: el. density in 10^-7 cm^-3, n-dim array
-    g: photon-ALP coyupling strength, scalar
+    g: photon-ALP coupling strength, scalar, in 10^-11 GeV^-1
     B: magnetic field in nG, n-dim array
     E: energy in TeV, m-dim array
 
     Returns
     -------
-    Delta_osc as mxn-dim array in Mpc
+    Delta_osc as mxn-dim array in Mpc^-1
     """
     if np.isscalar(E):
 	E = np.array([E])
