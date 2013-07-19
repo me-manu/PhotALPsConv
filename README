@@ -1,0 +1,52 @@
+	#################################
+	#	PhotALPsConv		#
+	#################################
+	# python package to commute 	#
+	# photon-ALP oscillations in 	#
+	# ICM, IGMF and GMF		#
+	#				#
+	# Author:			#
+	# -------			#
+	# Manuel Meyer			#
+	# Version: 0.02 07/19/2013	#
+	# manuel.meyer@desy.de		#
+	#################################
+
+1. Introduction
+---------------
+
+The python scripts included in this package can be used
+to compute the oscillation probability of photons into 
+axion-like particles in different settings of the ambient
+magnetic field.
+
+If you use any of the packages, please give a reference to the 
+following papers:
+
+
+2. Prerequisites
+----------------
+
+The scripts require further packages written available at https://github.com/me-manu/
+namely the packages eblstud, gmf, and a running version of the modified
+NE2001 code (Cordes & Lazio, 2001), also available at the above repository.
+The latter two packages are only required for conversion calculations in the Galactic
+magnetic field of the Milky Way.
+Download the packages and the add the paths to your PYTHONPATH variable.
+
+You will also need the following standard python packages:
+numpy
+scipy
+matplotlib
+kapteyn
+
+
+3. Package contents:
+--------------------
+README			-	the file you are currently reading
+__init__.py		-	init the python packages
+conversion.py		-	photon-ALP conversions in the intergalactic medium
+conversion_ICM.py	-	photon-ALP conversions in the intracluster medium
+conversion_GMF.py	-	photon-ALP conversions in Galactic magnetic field
+deltas.py		-	auxilliary functions to calculate the delta (momentum difference) parameters
+example.py		- 	example file to calculate the conversion (not yet added)
