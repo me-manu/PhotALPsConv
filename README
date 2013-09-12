@@ -1,7 +1,7 @@
 	#################################
 	#	PhotALPsConv		#
 	#################################
-	# python package to commute 	#
+	# python package to compute 	#
 	# photon-ALP oscillations in 	#
 	# ICM, IGMF and GMF		#
 	#				#
@@ -23,6 +23,8 @@ magnetic field.
 If you use any of the packages, please give a reference to the 
 following papers:
 
+- Horns et al., 2012, Physical Review D, vol. 86, Issue 7
+- Meyer et al., 2013, Physical Review D, vol. 87, Issue 3, id. 035027
 
 2. Prerequisites
 ----------------
