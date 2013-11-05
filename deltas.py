@@ -7,7 +7,7 @@ Version 1.0
 
 import numpy as np
 
-__version__=0.01
+__version__=0.02
 
 #g is photon axion coupling in 10^-11 GeV^-1
 #B is magnetic field in nG
