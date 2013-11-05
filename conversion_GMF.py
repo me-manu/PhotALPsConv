@@ -63,7 +63,7 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	    maximal z of GMF in kpc
 	    default: 50 kpc
 	d : float (optional)
-	    position of origin along x axis in GC coordinates
+	    position of origin along x axis in GC coordinates in kpc
 	    default is postion of the sun, i.e. d = -8.5kpc
 	Lcoh : float (optional)
 	    coherence length or step size for integration
@@ -113,7 +113,7 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	b: float
 	    galactic latitude
 	smax: float
-	    maximum distance from sun considered here where |GMF| > 0
+	    maximum distance in kpc from sun considered here where |GMF| > 0
 	"""
 
 	# Transformation RA, DEC -> L,B
