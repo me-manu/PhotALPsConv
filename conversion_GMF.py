@@ -230,7 +230,9 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	B,Babs	= self.Bgmf_calc(sa)
 	Bs, Bt, Bu	= GC2HCproj(B, sa, self.l, self.b,self.d)	# Compute Bgmf and the projection to HC coordinates (s,b,l)
 	
-	self.B	= np.sqrt(Bt**2. + Bu**2.)	# Abs value of transverse component in all domains
+	#self.B	= np.sqrt(Bt**2. + Bu**2.)	# Abs value of transverse component in all domains
+	self.B	= np.sqrt(Bt**2.)		# Abs value of transverse component in all domains
+	#self.B	= np.sqrt(Bu**2.)		# Abs value of transverse component in all domains
 	# ----------------------------------------------------------------- #
 
 	# --- Calculate Angle between B in prop direction in all domains -- #
@@ -240,7 +242,8 @@ class PhotALPs_GMF(PhotALPs_ICM):
 
 
 	# Psi = arctan( B_transversal / B_along prop. direction)
-	self.Psin[m]	= np.arctan2(self.B[m],Bs[m])	# arctan2 selects the right quadrant
+	#self.Psin[m]	= np.arctan2(self.B[m],Bs[m])	# arctan2 selects the right quadrant
+	self.Psin[m]	= np.ones((self.Psin[m]).shape[0]) * np.pi / 2.
 
 	self.T1		= np.zeros((3,3,self.Nd),np.complex)
 	self.T2		= np.zeros((3,3,self.Nd),np.complex)
