@@ -74,7 +74,6 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	model: string (default = jansson)
 	    GMF model that is used. Currently the model by Jansson & Farrar (2012) and Pshirkov et al. (2011) are implemented. 
 	    Usage: model=[jansson, phsirkov]
-	    Note: if model=pshirkov, use d=8.5!
 	model_sym: string (default = ASS)
 	    Only applies if pshirkov model is chosen: you can choose between the axis- and bisymmetric version by setting model_sym to ASS or BSS.
 
@@ -111,9 +110,6 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	    self.Bgmf = gmf.GMF()	# Initialize the Bfield class
 	elif model == 'pshirkov':
 	    self.Bgmf = gmf.GMF_Pshirkov(mode = model_sym)	
-	    if self.d == -8.5:
-		warnings.warn('Position is chosen at d = -8.5 kpc. I\'m assuming you mean the sun\'s position, in Pshirkov\'s model that\'s at d=8.5 kpc. Setting new position.',RuntimeWarning)
-#		self.d *= -1.
 
 	return
 
@@ -230,9 +226,10 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	B,Babs	= self.Bgmf_calc(sa)
 	Bs, Bt, Bu	= GC2HCproj(B, sa, self.l, self.b,self.d)	# Compute Bgmf and the projection to HC coordinates (s,b,l)
 	
-	#self.B	= np.sqrt(Bt**2. + Bu**2.)	# Abs value of transverse component in all domains
+	self.B	= np.sqrt(Bt**2. + Bu**2.)	# Abs value of transverse component in all domains
+	# Debug:
 	#self.B	= np.sqrt(Bt**2.)		# Abs value of transverse component in all domains
-	self.B	= np.sqrt(Bu**2.)		# Abs value of transverse component in all domains
+	#self.B	= np.sqrt(Bu**2.)		# Abs value of transverse component in all domains
 	# ----------------------------------------------------------------- #
 
 	# --- Calculate Angle between B in prop direction in all domains -- #
@@ -242,8 +239,9 @@ class PhotALPs_GMF(PhotALPs_ICM):
 
 
 	# Psi = arctan( B_transversal / B_along prop. direction)
+	# Debug:
 	#self.Psin[m]	= np.arctan2(self.B[m],Bs[m])	# arctan2 selects the right quadrant
-	self.Psin[m]	= np.ones((self.Psin[m]).shape[0]) * np.pi / 2.
+	self.Psin[m]	= np.ones((self.Psin[m]).shape[0]) * np.pi / 4.
 
 	self.T1		= np.zeros((3,3,self.Nd),np.complex)
 	self.T2		= np.zeros((3,3,self.Nd),np.complex)
