@@ -3,9 +3,10 @@ Class for the calculation of photon-ALPs conversion in the galactic magnetic fie
 
 History:
 - 06/01/12: created
+- 11/06/13: added the Pshirkov model
 """
-__version__=0.01
-__author__="M. Meyer // manuel.meyer@physik.uni-hamburg.de"
+__version__=0.02
+__author__="M. Meyer // manuel.meyer@fysik.su.se"
 
 
 import numpy as np
@@ -41,7 +42,8 @@ class PhotALPs_GMF(PhotALPs_ICM):
     NE2001: flag if NE2001 code is used to compute thermal enectron density
     """
 
-    def __init__(self, pol_t = 1./np.sqrt(2.) , pol_u = 1./np.sqrt(2.), g = 1., m = 1., n = 1.e4, galactic = -1., rho_max = 20., zmax = 50., d = -8.5,Lcoh = 0.01, NE2001 = False):
+    def __init__(self, pol_t = 1./np.sqrt(2.) , pol_u = 1./np.sqrt(2.), g = 1., m = 1., n = 1.e4, 
+		galactic = -1., rho_max = 20., zmax = 50., d = -8.5,Lcoh = 0.01, NE2001 = False, model = 'jansson', model_sym = 'ASS'):
 	"""
 	init GMF class
 
@@ -69,11 +71,23 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	    coherence length or step size for integration
 	NE2001: bool (optional, default = False)
 	    if True, NE2001 code is used to compute electron density instead of constant value
+	model: string (default = jansson)
+	    GMF model that is used. Currently the model by Jansson & Farrar (2012) and Pshirkov et al. (2011) are implemented. 
+	    Usage: model=[jansson, phsirkov]
+	    Note: if model=pshirkov, use d=8.5!
+	model_sym: string (default = ASS)
+	    Only applies if pshirkov model is chosen: you can choose between the axis- and bisymmetric version by setting model_sym to ASS or BSS.
 
 	Returns
 	-------
 	Nothing.
 	"""
+
+
+	if not (model == 'jansson' or model == 'pshirkov'):
+	    raise ValueError('Unknown GMF model: {0}! Use pshirkov or jansson.'.format(model))
+	if not (model_sym == 'ASS' or model_sym == 'BSS'):
+	    raise ValueError('Unknown symmetry for GMF model: {0}! Use ASS or BSS.'.format(model))
 
 	# ALP parameters g,m,n: already provided in super call
 	super(PhotALPs_GMF,self).__init__(g = g, m = m, n = n, Lcoh = Lcoh)	#Inherit everything from PhotALPs_ICM
@@ -91,7 +105,15 @@ class PhotALPs_GMF(PhotALPs_ICM):
 
 
 	self.E		= 0.	# Energy in GeV
-	self.Bgmf = gmf.GMF()	# Initialize the Bfield the class
+
+	self.model	= model
+	if model == 'jansson':
+	    self.Bgmf = gmf.GMF()	# Initialize the Bfield class
+	elif model == 'pshirkov':
+	    self.Bgmf = gmf.GMF_Pshirkov(mode = model_sym)	
+	    if self.d == -8.5:
+		warnings.warn('Position is chosen at d = -8.5 kpc. I\'m assuming you mean the sun\'s position, in Pshirkov\'s model that\'s at d=8.5 kpc. Setting new position.',RuntimeWarning)
+		self.d *= -1.
 
 	return
 
@@ -162,7 +184,8 @@ class PhotALPs_GMF(PhotALPs_ICM):
 
 	B = self.Bgmf.Bdisk(rho,phi,z)[0] 	# add all field components
 	B += self.Bgmf.Bhalo(rho,z)[0] 
-	B += self.Bgmf.BX(rho,z)[0] 
+	if self.model == 'jansson':
+	    B += self.Bgmf.BX(rho,z)[0] 
 
 	### Single components for debugging ###
 	#B = self.Bgmf.Bdisk(rho,phi,z)[0] 	
@@ -235,16 +258,16 @@ class PhotALPs_GMF(PhotALPs_ICM):
 		filename = './' + filename.split('/')[-1]
 	    try:
 		f = open(filename)		# check if n has already been calculated for this l,b, smax and Lcoh
-		# returns n in cm^-3
-		self.n = pickle.load(f) *1e3		# convert into 1e-3 cm^-3
+						# returns n in cm^-3
+		self.n = pickle.load(f) *1e3	# convert into 1e-3 cm^-3
 		f.close()
 	    except IOError:			# if not already calculated, do it now and save to file with function dl
-		# returns n in cm^-3
 		self.n = dl(sa,self.l,self.b,filename,d=self.d) * 1e3		# convert into 1e-3 cm^-3
 	else:
 	    n = self.n[0]
 	    self.n = n * np.ones(self.Nd)
 	# ----------------------------------------------------------------- #
+
 	self.n[self.n == 0.] = 1e-4 * np.ones(np.sum(self.n == 0.))
 
 #	for i,Bi in enumerate(self.B):
