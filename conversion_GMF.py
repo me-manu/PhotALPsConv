@@ -113,7 +113,7 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	    self.Bgmf = gmf.GMF_Pshirkov(mode = model_sym)	
 	    if self.d == -8.5:
 		warnings.warn('Position is chosen at d = -8.5 kpc. I\'m assuming you mean the sun\'s position, in Pshirkov\'s model that\'s at d=8.5 kpc. Setting new position.',RuntimeWarning)
-		self.d *= -1.
+#		self.d *= -1.
 
 	return
 
@@ -230,8 +230,8 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	B,Babs	= self.Bgmf_calc(sa)
 	Bs, Bt, Bu	= GC2HCproj(B, sa, self.l, self.b,self.d)	# Compute Bgmf and the projection to HC coordinates (s,b,l)
 	
-	#self.B	= np.sqrt(Bt**2. + Bu**2.)	# Abs value of transverse component in all domains
-	self.B	= np.sqrt(Bt**2.)		# Abs value of transverse component in all domains
+	self.B	= np.sqrt(Bt**2. + Bu**2.)	# Abs value of transverse component in all domains
+	#self.B	= np.sqrt(Bt**2.)		# Abs value of transverse component in all domains
 	#self.B	= np.sqrt(Bu**2.)		# Abs value of transverse component in all domains
 	# ----------------------------------------------------------------- #
 
