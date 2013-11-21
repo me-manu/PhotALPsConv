@@ -272,7 +272,7 @@ class PhotALPs(object):
 
 	# calculate mean free path according to De Angelis et al. (2011) Eq. 131
 	difftau	= (self.tau.opt_depth_array(n*self.dz , self.E0) - self.tau.opt_depth_array((n-ones)*self.dz , self.E0)).transpose()[0]
-	difftau[difftau < 1e-20] = np.ones(len(difftau < 1e-20)) * 1e-20	# set to 1e-20 if difference is smaller
+	difftau[difftau < 1e-20] = (difftau < 1e-20) * 1e-20	# set to 1e-20 if difference is smaller
 
 	self.Ln	= 4.29e3*self.dz / (ones + 1.45*(n - ones)*self.dz)
 
