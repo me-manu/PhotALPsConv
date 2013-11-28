@@ -256,7 +256,7 @@ class PhotALPs_GMF(PhotALPs_ICM):
 #		if not len(glob.glob('./' + filename.split('/')[-1])):
 #		    subprocess.call(['cp',filename,'./'])
 #		    logging.info('copied NE2001 file {0} to tmdir'.format(filename))
-		filename = './' + filename.split('/')[-1]
+#		filename = './' + filename.split('/')[-1]
 	    try:
 		f = open(filename)		# check if n has already been calculated for this l,b, smax and Lcoh
 						# returns n in cm^-3
