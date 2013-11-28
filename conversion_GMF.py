@@ -251,7 +251,7 @@ class PhotALPs_GMF(PhotALPs_ICM):
 
 	# --- Calculate density in all domains: ----------------------------#
 	if self.NE2001:
-	    filename = os.path.join(os.environ['NE2001_PATH'],'data/smax{0:.1f}_l{1:.1f}_b{2:.1f}_Lcoh{3}.pickle'.format(self.smax,self.l,self.b,self.Lcoh))
+	    filename = os.path.join(os.environ['NE2001_PATH'],'data/smax{0:.1f}_l{1:.2f}_b{2:.2f}_Lcoh{3}.pickle'.format(self.smax,self.l,self.b,self.Lcoh))
 #	    if not (os.environ['HOST'] == 'astro-wgs02' or os.environ['HOST'] == 'uh2ulastro15'):
 #		if not len(glob.glob('./' + filename.split('/')[-1])):
 #		    subprocess.call(['cp',filename,'./'])
