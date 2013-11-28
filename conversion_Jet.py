@@ -1,17 +1,15 @@
 """
-Class for the calculation of photon-ALPs conversion in galaxy clusters
+Class for the calculation of photon-ALPs conversion in AGN jets
 
 History:
-- 06/01/12: created
-- 07/18/13: cleaned up
+- 11/13/13: created
 """
-__version__=0.02
-__author__="M. Meyer // manuel.meyer@physik.uni-hamburg.de"
+__version__=0.01
+__author__="M. Meyer // manuel.meyer@fysik.su.se"
 
 
 import numpy as np
-from math import ceil
-import eblstud.ebl.tau_from_model as Tau
+from math import ceil,floor
 from eblstud.misc.constants import *
 import logging
 import warnings
@@ -19,29 +17,29 @@ from numpy.random import rand, seed
 
 # --- Conversion without absorption, designed to match values in Clusters -------------------------------------------#
 from deltas import *
-class PhotALPs_ICM(object):
+class PhotALPs_Jet(object):
     """
-    Class for photon ALP conversion in galaxy clusters and the intra cluster medium (ICM) 
+    Class for photon ALP conversion in AGN jets 
 
     Attributes
     ----------
-    Lcoh:	coherence length / domain size of turbulent B-field in the cluster in kpc
-    B:		field strength of transverse component of the cluster B-field, in muG
-    r_abell:	size of cluster filled with the constant B-field in kpc
+    B:		field strength in jet at r = R_BLR in G
+    R_BLR:	Radius of broad line region in pc
+    r:		distance where mixing is evaluated in pc
+    s:		Exponent for electron density (between 1 and 3)
+    p:		Exponent for magnetic field (1=toroidal, 2=poloidal)
     g:		Photon ALP coupling in 10^{-11} GeV^-1
     m:		ALP mass in neV
-    n:		thermal electron density in the cluster, in 10^{-3} cm^-3
-    Nd:		number of domains, Lcoh/r_abell
-    xi:		g * B
-    Psin:	random angle in domain n between transverse B field and propagation direction
+    E:		energy in GeV
+    n:		electron density in the jet at r = R_BLR, in cm^-3
     T1:		Transfer matrix 1 (3x3xNd)-matrix
     T2:		Transfer matrix 2 (3x3xNd)-matrix		
     T3:		Transfer matrix 3 (3x3xNd)-matrix
     Un:		Total transfer matrix in all domains (3x3xNd)-matrix
-    Dperp:	Mixing matrix parameter Delta_perpedicular in n-th domain
-    Dpar:	Mixing matrix parameter Delta_{||} in n-th domain
-    Dag:	Mixing matrix parameter Delta_{a\gamma} in n-th domain
-    Da:		Mixing matrix parameter Delta_{a} in n-th domain
+    Dperp:	Mixing matrix parameter Delta_perpedicular 
+    Dpar:	Mixing matrix parameter Delta_{||} 
+    Dag:	Mixing matrix parameter Delta_{a\gamma} 
+    Da:		Mixing matrix parameter Delta_{a} 
     alph:	Mixing angle
     Dosc:	Oscillation Delta
 
@@ -51,28 +49,31 @@ class PhotALPs_ICM(object):
 
     Notes
     -----
-    For Photon - ALP mixing theory see e.g. De Angelis et al. 2011 and also Horns et al. 2012
+    For Photon - ALP mixing in AGN jet see e.g. Tavecchio et al. 2012 and Mena & Razzaque 2013:
     http://adsabs.harvard.edu/abs/2011PhRvD..84j5030D
     http://adsabs.harvard.edu/abs/2012PhRvD..86g5024H
     """
-    def __init__(self, Lcoh=10., B=1., r_abell=1500.*h , E_GeV = 1000., g = 1., m = 1., n = 1., 
-		Bn_const = True, r_core = 200.,beta = 2./3., eta = 1.):
+    def __init__(self, **kwargs):
 	"""
 	init photon axion conversion in intracluster medium
 
 	Parameters
 	----------
-	Lcoh:		coherence length / domain size of turbulent B-field in the cluster in kpc, default: 10 kpc
-	B:		field strength of transverse component of the cluster B-field, in muG, default: 1 muG
-	r_abell:	size of cluster filled with the constant B-field in kpc. default: 1500 * h
+	None
+
+	kwargs	
+	------
+	Rmax:		distance up to which jet extends, in pc.
+	B:		field strength at r = R_BLR in G, default: 0.1 G
+	E:		Energy in GeV for mixing is evaluated, default: 1 TeV.
+	R_BLR:		Distance of broad line region (BLR) to centrum in pc, default: 0.3 pc
 	g:		Photon ALP coupling in 10^{-11} GeV^-1, default: 1.
 	m:		ALP mass in neV, default: 1.
-	n:		thermal electron density in the cluster, in 10^{-3} cm^-3, default: 1.
-	Bn_const:	boolean, if True n and B are constant all over the cluster
-			if False than B and n are modeled, see notes
-	r_core:		Core radius for n and B modeling in kpc, default: 200 kpc
-	beta:		power of n dependence, default: 2/3
-	eta:		power with what B follows n, see Notes. Typical values: 0.5 <= eta <= 1. default: 1.
+	n:		electron density in the jet at r = R_BLR, in cm^-3, default: 1e9
+	s:		exponent for scaling of electron density, default: 2.
+	p:		exponent for scaling of magneitc field, default: 1.
+	sens:		scalar < 1., sets the number of domains, for the B field in the n-th domain, it will have changed by B_n = sens * B_{n-1}
+	Psi:		scalar, angle between B field and transversal photon polarization, default: 0.
 
 	Returns
 	-------
@@ -81,53 +82,59 @@ class PhotALPs_ICM(object):
 	Notes
 	-----
 
-	If Bn_const = False then electron density is modeled according to Carilli & Taylor (2002) Eq. 2:
-	    n_e(r)  = n * (1 - (r/r_core)**2.)**(-3/2*beta)
-	with typical values of r_core = 200 kpc and beta = 2/3.
-
-	The magnetic field is supposed to follow n_e(r) with (Feretti et al. 2012, p. 41, section 7.1)
-	    B(r) = B * (n_e(r)/n) ** eta
-	with typical values 1 muG <= B <= 15muG and 0.5 <= eta <= 1
+	The magnetic field is modeled according to 
+	    B(r) = B * (r / R_BLR) ** -p
+	p = 1: toroidal field
+	p = 2: poloidal field
+	See e.g. Rees (1987).
+	The electron density is modeled according to 
+	    n(r) = n * (r / R_BLR) ** -s
 	"""
 
-	self.Nd		= int(r_abell / Lcoh)	# number of domains, no expansion assumed
-	self.Lcoh	= Lcoh
-	self.E		= E_GeV
-	self.g		= g
-	self.m		= m
-	if Bn_const:
-	    self.n		= n * np.ones(int(self.Nd))	# assuming a constant electron density over all domains
-	    self.B		= B * np.ones(int(self.Nd))	# assuming a constant B-field over all domains
-	else:
-	    r	= np.linspace(Lcoh, r_abell + Lcoh, int(self.Nd))
-	    self.n = n * (np.ones(int(self.Nd)) + r**2./r_core**2.)**(-1.5 * beta)
-	    self.B = B * (self.n/n)**eta
-	self.xi		= g * B			# xi parameter as in IGM case, in kpc
-	self.Psin	= 2. * np.pi * rand(1,int(self.Nd))[0]	# angle between photon propagation on B-field in all domains
+# --- Set the defaults
+	kwargs.setdefault('R_BLR',0.3)
+	kwargs.setdefault('E',1.)
+	kwargs.setdefault('g',1.)
+	kwargs.setdefault('m',1.)
+	kwargs.setdefault('n',1e8)
+	kwargs.setdefault('Rmax',1000.)
+	kwargs.setdefault('B',0.01)
+	kwargs.setdefault('s',2.)
+	kwargs.setdefault('p',1.)
+	kwargs.setdefault('sens',0.99)
+	kwargs.setdefault('Psi',0.)
+# --------------------
+	self.update_params(**kwargs)
+
+	return
+
+    def update_params(self, **kwargs):
+	"""Update all parameters with new values and initialize all matrices"""
+
+	self.__dict__.update(kwargs)
+
+	self.Bf		= lambda r: self.B * (r / self.R_BLR) ** -self.p
+	self.nf		= lambda r: self.n * (r / self.R_BLR) ** -self.s
+
+	self.Nd		= ceil( -1. * self.p * np.log(self.Rmax/self.R_BLR) / np.log(self.sens) )	
+	self.Lcoh	= self.R_BLR *  self.sens ** ( - np.linspace(1.,self.Nd,self.Nd) / self.p ) * (1. - self.sens) # domain length
+	self.r		= self.R_BLR *  self.sens ** ( - np.linspace(0.,self.Nd,self.Nd) / self.p ) 		# distance from BLR
+
+
+	self.Br = self.Bf(self.r)
+	self.nr = self.nf(self.r)
+
 	self.T1		= np.zeros((3,3,self.Nd),np.complex)	# Transfer matrices
 	self.T2		= np.zeros((3,3,self.Nd),np.complex)
 	self.T3		= np.zeros((3,3,self.Nd),np.complex)
 	self.Un		= np.zeros((3,3,self.Nd),np.complex)
-	return
 
-    def new_random_psi(self):
-	"""
-	Calculate new random psi values
-
-	Parameters:
-	-----------
-	None
-
-	Returns:
-	--------
-	Nothing
-	"""
-	self.Psin	= 2. * np.pi * rand(1,int(self.Nd))[0]	# angle between photon propagation on B-field in i-th domain 
+	self.Psin	= np.ones(self.Nd) * self.Psi
 	return
 
     def __setDeltas(self):
 	"""
-	Set Deltas of mixing matrix for each domain
+	Set Deltas of mixing matrix for each domain in units of 1/pc
 	
 	Parameters
 	----------
@@ -138,10 +145,10 @@ class PhotALPs_ICM(object):
 	Nothing
 	"""
 
-	self.Dperp	= Delta_pl_kpc(self.n,self.E) + 2.*Delta_QED_kpc(self.B,self.E)		# np.arrays , self.Nd-dim
-	self.Dpar	= Delta_pl_kpc(self.n,self.E) + 3.5*Delta_QED_kpc(self.B,self.E)	# np.arrays , self.Nd-dim
-	self.Dag	= Delta_ag_kpc(self.g,self.B)						# np.array, self.Nd-dim
-	self.Da		= Delta_a_kpc(self.m,self.E) * np.ones(int(self.Nd))			# np.ones, so that it is np.array, self.Nd-dim
+	self.Dperp	= 1e-3 * (Delta_pl_kpc(self.nr * 1e3,self.E) + 2.*Delta_QED_kpc(self.Br * 1e6,self.E))
+	self.Dpar	= 1e-3 * (Delta_pl_kpc(self.nr * 1e3,self.E) + 3.5*Delta_QED_kpc(self.Br * 1e6,self.E))	
+	self.Dag	= 1e-3 * (Delta_ag_kpc(self.g,self.Br * 1e6))
+	self.Da		= 1e-3 * (Delta_a_kpc(self.m,self.E) * np.ones(int(self.Nd )))
 	self.alph	= 0.5 * np.arctan(2. * self.Dag / (self.Dpar - self.Da)) 
 	self.Dosc	= np.sqrt((self.Dpar - self.Da)**2. + 4.*self.Dag**2.)
 
@@ -182,7 +189,7 @@ class PhotALPs_ICM(object):
 	c = np.cos(self.Psin)
 	s = np.sin(self.Psin)
 	self.T1[0,0,:]	= c*c
-	self.T1[0,1,:]	= -1. * c*s
+	#self.T1[0,1,:]	= -1. * c*s
 	self.T1[1,0,:]	= self.T1[0,1]
 	self.T1[1,1,:]	= s*s
 	return
@@ -203,9 +210,9 @@ class PhotALPs_ICM(object):
 	s = np.sin(self.Psin)
 	ca = np.cos(self.alph)
 	sa = np.sin(self.alph)
-	self.T2[0,0,:] = s*s*sa*sa
-	self.T2[0,1,:] = s*c*sa*sa
-	self.T2[0,2,:] = -1. * s * sa *ca
+	#self.T2[0,0,:] = s*s*sa*sa
+	#self.T2[0,1,:] = s*c*sa*sa
+	#self.T2[0,2,:] = -1. * s * sa *ca
 
 	self.T2[1,0,:] = self.T2[0,1]
 	self.T2[1,1,:] = c*c*sa*sa
@@ -232,9 +239,9 @@ class PhotALPs_ICM(object):
 	s = np.sin(self.Psin)
 	ca = np.cos(self.alph)
 	sa = np.sin(self.alph)
-	self.T3[0,0,:] = s*s*ca*ca
-	self.T3[0,1,:] = s*c*ca*ca
-	self.T3[0,2,:] = s*sa*ca
+	#self.T3[0,0,:] = s*s*ca*ca
+	#self.T3[0,1,:] = s*c*ca*ca
+	#self.T3[0,2,:] = s*sa*ca
 
 	self.T3[1,0,:] = self.T3[0,1]
 	self.T3[1,1,:] = c*c*ca*ca
@@ -267,9 +274,7 @@ class PhotALPs_ICM(object):
 	Set Transfer matrix in all domains and multiply it
 
 	Parameters
-	----------
-	None (self only)
-
+	---------- None (self only) 
 	Returns
 	-------
 	Transfer matrix as 3x3 complex numpy array
@@ -285,4 +290,24 @@ class PhotALPs_ICM(object):
 		U = self.Un[:,:,i]
 	    else:
 		U = np.dot(U,self.Un[:,:,i])	# first matrix on the left
+	return U
+
+    def analytical_U(self):
+	"""
+	Calculate transfer matrix with analytical formula of Eq. (60) in Tavecchio (2012)
+
+	Parameters
+	---------- None (self only) 
+	Returns
+	-------
+	Transfer matrix as 3x3 complex numpy array
+	"""
+	U	= np.zeros((3,3),np.complex)
+	U[0,0]	= 1.
+	x	= (1e-3 * (Delta_ag_kpc(self.g,self.Bf(np.array([self.Rmax])) * 1e6)) * (self.Rmax / self.R_BLR) ** self.p * self.R_BLR * np.log(self.Rmax / self.R_BLR))[0]
+	#x	= self.Dag * (self.r / self.R_BLR) ** self.p * self.R_BLR * np.log(self.r / self.R_BLR)
+	U[1,1]  = np.cos(x)
+	U[1,2]  = 1.j * np.sin(x)
+	U[2,1]  = U[1,2]
+	U[2,2]	= U[1,1]
 	return U
