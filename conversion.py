@@ -57,8 +57,7 @@ class PhotALPs(object):
 
     Attributes
     ----------
-    Ld = Ldom1
-    xi = g * B
+    L0 = L0
     dz = redshift step
 
     tau = optical depth class
@@ -71,7 +70,7 @@ class PhotALPs(object):
     EW1n	= Eigenvalue 1 of mixing matrix in n-th domain
     EW2n	= Eigenvalue 2 of mixing matrix in n-th domain
     EW3n	= Eigenvalue 3 of mixing matrix in n-th domain
-    E0		= Energy in TeV at z = 0
+    E0		= Energy in GeV at z = 0
     B0		= intergalactic magnetic field in nG at z = 0
     Dn		= sqrt(1 - 4* dn**2.), see notes
     T1		= Transfer matrix 1
@@ -86,63 +85,80 @@ class PhotALPs(object):
     http://adsabs.harvard.edu/abs/2011PhRvD..84j5030D
     """
 
-    def __init__(self, z, B0 = 1., Ldom1=5., g = 1., m = 1., n = 1., model='kneiske',ebl_norm = 1.,filename='None'):
+    def __init__(self, **kwargs):
 	"""
 	Init photon-ALPs conversion class with 
 
-	Parameters
-	----------
+	kwargs	
+	------
 	z: redshift of source
-	Ldom1: domain size at z=0 in Mpc, default: 5.
+	L0: domain size at z=0 in Mpc, default: 5.
 	B0: intergalactic magnetic field at z=0 in nG, default: 1
 	g : photon-ALPs coupling strength in 10^-11 GeV^-1, default: 1
 	model: EBL model to be used, default: 'kneiske'
 	ebl_norm: additional normalization of optical depth, default: 1
 	m : ALP mass in neV, default is 1. (only for energy dependent calculation)
-	n : electron density in 10^7, default is 1. (only for energy dependent calculation)
+	n0: electron density at z=0 in 10^7, default is 1. (only for energy dependent calculation)
 
 	Returns
 	-------
 	Nothing
 	"""
+# --- Set the defaults 
+	kwargs.setdefault('z',None)
+	kwargs.setdefault('B0',1.)
+	kwargs.setdefault('L0',5.)
+	kwargs.setdefault('g',1.)
+	kwargs.setdefault('m',1.)
+	kwargs.setdefault('n0',1.)
+	kwargs.setdefault('ebl','gilmore')
+	kwargs.setdefault('ebl_norm',1.)
+	kwargs.setdefault('filename','None')
+# --------------------
+	self.update_params_IGM(**kwargs) 
 
-	self.Ld = Ldom1
-	self.B0 = B0
-	self.xi = B0 * g
-	self.g  = g
-	self.m  = m
-	self.n0 = n
-	self.dz = 1.17e-3 * self.Ld / 5.
-	self.ebl_norm = ebl_norm
+	super(PhotALPs,self).__init__()
+
+	return
+
+    def update_params_IGM(self, **kwargs):
+	"""Update all parameters with new values and initialize all matrices"""
+
+	for k in kwargs.keys():
+	    if kwargs[k] == None:
+		logging.error("kwarg {0:s} cannot be None type.".format(k))
+
+	self.__dict__.update(kwargs)
+
+	self.dz = 1.17e-3 * self.L0 / 5.
 
 	self.tau = Tau.OptDepth()
 
-	if filename == 'None':
-	    self.tau.readfile(model = model)
+	if self.filename == 'None':
+	    self.tau.readfile(model = self.ebl)
 	else:
-	    self.tau.readfile(model = model, file_name = filename)
+	    self.tau.readfile(model = self.ebl, file_name = self.filename)
 
-	self.E0 = 0.	# Energy in TeV
+	self.E0 = 0.	# Energy in GeV
 
-	self.z = z
-	self.Nd = int(ceil(0.85e3*5./self.Ld*z))	# Number of domains 
-							# see De Angelis et al. Eq 114
+	self.Nd_IGM = int(ceil(0.85e3*5./self.L0*self.z))	# Number of domains 
+								# see De Angelis et al. Eq 114
 
 	self.dn		= 0.
-	self.EW1n	= 0.
-	self.EW2n	= 0.
-	self.EW3n	= 0.
+	self.EW1n_IGM	= 0.
+	self.EW2n_IGM	= 0.
+	self.EW3n_IGM	= 0.
 	self.Dn		= 0.
-	self.Psin	= 2. * np.pi * rand(1,int(self.Nd))[0]	# angle between photon propagation on B-field in i-th domain 
+	self.Psin_IGM	= 2. * np.pi * rand(1,int(self.Nd_IGM))[0]	# angle between photon propagation on B-field in i-th domain 
 								# random realizations
-	self.T1		= np.zeros((3,3,self.Nd),np.complex)
-	self.T2		= np.zeros((3,3,self.Nd),np.complex)
-	self.T3		= np.zeros((3,3,self.Nd),np.complex)
-	self.Un		= np.zeros((3,3,self.Nd),np.complex)
+	self.T1_IGM		= np.zeros((3,3,self.Nd_IGM),np.complex)
+	self.T2_IGM		= np.zeros((3,3,self.Nd_IGM),np.complex)
+	self.T3_IGM		= np.zeros((3,3,self.Nd_IGM),np.complex)
+	self.Un_IGM		= np.zeros((3,3,self.Nd_IGM),np.complex)
 
 	return 
 
-    def new_random_psi(self):
+    def new_random_psi_IGM(self):
 	"""
 	Calculate new random psi values
 
@@ -154,153 +170,11 @@ class PhotALPs(object):
 	--------
 	Nothing
 	"""
-	self.Psin	= 2. * np.pi * rand(1,int(self.Nd))[0]	# angle between photon propagation on B-field in i-th domain 
+	self.Psin_IGM	= 2. * np.pi * rand(1,int(self.Nd_IGM))[0]	# angle between photon propagation on B-field in i-th domain 
 	return
-
-    def __SetT1n(self):
-	"""
-	Set T1 in all domains
-	
-	Parameters
-	----------
-	None (self only)
-
-	Returns
-	-------
-	Nothing
-	"""
-	s = np.sin(self.Psin)
-	c = np.cos(self.Psin)
-	self.T1[0,0,:] = c*c 
-	self.T1[0,1,:] = -1.*s*c
-	self.T1[1,0,:] = self.T1[0,1]
-	self.T1[1,1,:] = s*s
-	return
-
-    def __SetT2n(self):
-	"""
-	Set T2 in all domains
-	
-	Parameters
-	----------
-	None (self only)
-
-	Returns
-	-------
-	Nothing
-	"""
-	s = np.sin(self.Psin)
-	c = np.cos(self.Psin)
-	ones = np.ones(self.Nd)
-	self.T2[0,0,:] = 0.5* (ones + self.Dn) / self.Dn * s*s
-	self.T2[0,1,:] = 0.5* (ones + self.Dn) / self.Dn * s*c
-	self.T2[0,2,:] = -1.j * self.dn/self.Dn * s
-	self.T2[1,0,:] = self.T2[0,1]
-	self.T2[2,0,:] = self.T2[0,2]
-
-	self.T2[1,1,:] = 0.5* (ones + self.Dn) / self.Dn * c*c
-	self.T2[1,2,:] = -1.j * self.dn/self.Dn * c
-	self.T2[2,1,:] = self.T2[1,2]
-
-	self.T2[2,2,:] = 0.5* ( -1.*ones + self.Dn ) / self.Dn
-	return 
-
-    def __SetT3n(self):
-	"""
-	Set T3 in all domains
-	
-	Parameters
-	----------
-	None (self only)
-
-	Returns
-	-------
-	Nothing
-	"""
-	s = np.sin(self.Psin)
-	c = np.cos(self.Psin)
-	ones = np.ones(self.Nd)
-
-	self.T3[0,0,:] = 0.5* (-1.*ones + self.Dn) / self.Dn * s*s
-	self.T3[0,1,:] = 0.5* (-1.*ones + self.Dn) / self.Dn * s*c
-	self.T3[0,2,:] = 1.j * self.dn/self.Dn * s
-	self.T3[1,0,:] = self.T3[0,1]
-	self.T3[2,0,:] = self.T3[0,2]
-
-	self.T3[1,1,:] = 0.5* (-1.*ones + self.Dn) / self.Dn * c*c
-	self.T3[1,2,:] = 1.j * self.dn/self.Dn * c
-	self.T3[2,1,:] = self.T3[1,2]
-
-	self.T3[2,2,:] = 0.5* ( 1.*ones + self.Dn ) / self.Dn
-	return 
-
-    def __SetUn(self):
-	"""
-	Set Transfer Matrix Un in all domains
-	
-	Parameters
-	----------
-	None (self only)
-
-	Returns
-	-------
-	Nothing
-	"""
-	self.Un = np.exp(self.EW1n* self.Ln) * self.T1 \
-	    + np.exp(self.EW2n* self.Ln) * self.T2 \
-	    + np.exp(self.EW3n* self.Ln) * self.T3 
-	return
-
-    def SetDomainN(self):
-	"""
-	Set domain length, energy, magnetic field, mean free path and delta in all domains 
-	and calculate total transfer matrix
-
-	Parameters
-	----------
-	n:	Number of domain, 0 < n <= self.Nd
-
-	Returns:
-	--------
-	U:	3x3 complex numpy array with total transfer matrix 
-	"""
-
-	ones	= np.ones(self.Nd)
-	n	= np.array(range(1,self.Nd+1))
-	En	= self.E0*(ones + (n-ones)*self.dz)
-	Bn	= self.B0*(ones + (n-ones)*self.dz)**2.
-
-	# calculate mean free path according to De Angelis et al. (2011) Eq. 131
-	difftau	= (self.tau.opt_depth_array(n*self.dz , self.E0) - self.tau.opt_depth_array((n-ones)*self.dz , self.E0)).transpose()[0]
-	difftau[difftau < 1e-20] = np.ones(difftau.shape[0])[difftau < 1e-20] * 1e-20	# set to 1e-20 if difference is smaller
-
-	self.Ln	= 4.29e3*self.dz / (ones + 1.45*(n - ones)*self.dz)
-
-	mfn	= self.Ln / difftau / self.ebl_norm 
-
-	# The (1 + z)**2 factor comes from the B-field scaling
-	self.dn = 3.04e-2*self.xi*mfn*(ones + (n-ones)*self.dz)**2.
-
-	self.Dn	= ones - 4.*self.dn**2. + 0.j*ones
-	self.Dn	= np.sqrt(self.Dn)
-	self.EW1n = -0.5 / mfn 
-	self.EW2n = -0.25 / mfn * ( ones + self.Dn)
-	self.EW3n = -0.25/ mfn * ( ones - self.Dn)
-
-	self.__SetT1n()
-	self.__SetT2n()
-	self.__SetT3n()
-
-	self.__SetUn()
-	for i in range(self.Nd):
-	    if not i:
-		U = self.Un[:,:,i]
-	    else:
-		U = np.dot(self.Un[:,:,i],U)
-	return U
 
 #--- Energy dependent calculations -------------------------------------------------#
-    def __SetT1n_E(self):
+    def __SetT1n_IGM(self):
 	"""
 	Set T1 in all domains for energy dependent calculation (stron mixing regime not required)
 	
@@ -312,15 +186,15 @@ class PhotALPs(object):
 	-------
 	Nothing
 	"""
-	s = np.sin(self.Psin)
-	c = np.cos(self.Psin)
-	self.T1[0,0,:] = c*c 
-	self.T1[0,1,:] = -1.*s*c
-	self.T1[1,0,:] = self.T1[0,1]
-	self.T1[1,1,:] = s*s
+	s = np.sin(self.Psin_IGM)
+	c = np.cos(self.Psin_IGM)
+	self.T1_IGM[0,0,:] = c*c 
+	self.T1_IGM[0,1,:] = -1.*s*c
+	self.T1_IGM[1,0,:] = self.T1_IGM[0,1]
+	self.T1_IGM[1,1,:] = s*s
 	return
 
-    def __SetT2n_E(self):
+    def __SetT2n_IGM(self):
 	"""
 	Set T2 in all domains for energy dependent calculation (stron mixing regime not required)
 	
@@ -332,22 +206,22 @@ class PhotALPs(object):
 	-------
 	Nothing
 	"""
-	s = np.sin(self.Psin)
-	c = np.cos(self.Psin)
-	self.T2[0,0,:] = 0.5* (self.delta_aa_n - self.delta_par_n - self.delta_abs_n + self.Dn) / self.Dn * s*s
-	self.T2[0,1,:] = 0.5* (self.delta_aa_n - self.delta_par_n - self.delta_abs_n + self.Dn) / self.Dn * s*c
-	self.T2[0,2,:] = -1. *  self.delta_ag_n / self.Dn * s
-	self.T2[1,0,:] = self.T2[0,1]
-	self.T2[2,0,:] = self.T2[0,2]
+	s = np.sin(self.Psin_IGM)
+	c = np.cos(self.Psin_IGM)
+	self.T2_IGM[0,0,:] = 0.5* (self.delta_aa_n - self.delta_par_n - self.delta_abs_n + self.Dn) / self.Dn * s*s
+	self.T2_IGM[0,1,:] = 0.5* (self.delta_aa_n - self.delta_par_n - self.delta_abs_n + self.Dn) / self.Dn * s*c
+	self.T2_IGM[0,2,:] = -1. *  self.delta_ag_n / self.Dn * s
+	self.T2_IGM[1,0,:] = self.T2_IGM[0,1]
+	self.T2_IGM[2,0,:] = self.T2_IGM[0,2]
 
-	self.T2[1,1,:] = 0.5* (self.delta_aa_n - self.delta_par_n - self.delta_abs_n + self.Dn) / self.Dn * c*c
-	self.T2[1,2,:] = -1. * self.delta_ag_n / self.Dn * c
-	self.T2[2,1,:] = self.T2[1,2]
+	self.T2_IGM[1,1,:] = 0.5* (self.delta_aa_n - self.delta_par_n - self.delta_abs_n + self.Dn) / self.Dn * c*c
+	self.T2_IGM[1,2,:] = -1. * self.delta_ag_n / self.Dn * c
+	self.T2_IGM[2,1,:] = self.T2_IGM[1,2]
 
-	self.T2[2,2,:] = 0.5* (-1. * self.delta_aa_n + self.delta_par_n + self.delta_abs_n +self.Dn) / self.Dn
+	self.T2_IGM[2,2,:] = 0.5* (-1. * self.delta_aa_n + self.delta_par_n + self.delta_abs_n +self.Dn) / self.Dn
 	return 
 
-    def __SetT3n_E(self):
+    def __SetT3n_IGM(self):
 	"""
 	Set T3 in all domains for energy dependent calculation (stron mixing regime not required)
 	
@@ -359,24 +233,24 @@ class PhotALPs(object):
 	-------
 	Nothing
 	"""
-	s = np.sin(self.Psin)
-	c = np.cos(self.Psin)
+	s = np.sin(self.Psin_IGM)
+	c = np.cos(self.Psin_IGM)
 
-	self.T3[0,0,:] = 0.5* (-1. * self.delta_aa_n + self.delta_par_n + self.delta_abs_n +self.Dn) / self.Dn * s*s
-	self.T3[0,1,:] = 0.5* (-1. * self.delta_aa_n + self.delta_par_n + self.delta_abs_n +self.Dn) / self.Dn * s*c
-	self.T3[0,2,:] = self.delta_ag_n / self.Dn * s
-	self.T3[1,0,:] = self.T3[0,1]
-	self.T3[2,0,:] = self.T3[0,2]
+	self.T3_IGM[0,0,:] = 0.5* (-1. * self.delta_aa_n + self.delta_par_n + self.delta_abs_n +self.Dn) / self.Dn * s*s
+	self.T3_IGM[0,1,:] = 0.5* (-1. * self.delta_aa_n + self.delta_par_n + self.delta_abs_n +self.Dn) / self.Dn * s*c
+	self.T3_IGM[0,2,:] = self.delta_ag_n / self.Dn * s
+	self.T3_IGM[1,0,:] = self.T3_IGM[0,1]
+	self.T3_IGM[2,0,:] = self.T3_IGM[0,2]
 
-	self.T3[1,1,:] = 0.5* (-1. * self.delta_aa_n + self.delta_par_n + self.delta_abs_n +self.Dn) / self.Dn * c*c
-	self.T3[1,2,:] = self.delta_ag_n / self.Dn * c
-	self.T3[2,1,:] = self.T3[1,2]
+	self.T3_IGM[1,1,:] = 0.5* (-1. * self.delta_aa_n + self.delta_par_n + self.delta_abs_n +self.Dn) / self.Dn * c*c
+	self.T3_IGM[1,2,:] = self.delta_ag_n / self.Dn * c
+	self.T3_IGM[2,1,:] = self.T3_IGM[1,2]
 
-	self.T3[2,2,:] = 0.5 * (self.delta_aa_n - self.delta_par_n - self.delta_abs_n +self.Dn) / self.Dn
+	self.T3_IGM[2,2,:] = 0.5 * (self.delta_aa_n - self.delta_par_n - self.delta_abs_n +self.Dn) / self.Dn
 
 	return 
 
-    def __SetUn_E(self):
+    def __SetUn_IGM(self):
 	"""
 	Set Transfer Matrix Un in all domains for energy dependent calculation (no stron mixing regime required)
 	
@@ -388,44 +262,44 @@ class PhotALPs(object):
 	-------
 	Nothing
 	"""
-	self.Un = np.exp(1.j*self.EW1n* self.Ln) * self.T1 \
-	    + np.exp(1.j*self.EW2n* self.Ln) * self.T2 \
-	    + np.exp(1.j*self.EW3n* self.Ln) * self.T3 
+	self.Un_IGM = np.exp(1.j*self.EW1n_IGM* self.Ln) * self.T1_IGM \
+	    + np.exp(1.j*self.EW2n_IGM* self.Ln) * self.T2_IGM \
+	    + np.exp(1.j*self.EW3n_IGM* self.Ln) * self.T3_IGM 
 	return
 
-    def SetDomainN_E(self):
+    def SetDomainN_IGM(self):
 	"""
 	Set domain length, energy, magnetic field, mean free path and delta in all domains 
 	and calculate total transfer matrix, with energy dependence included (strong mixing regime not required)
 
 	Parameters
 	----------
-	n:	Number of domain, 0 < n <= self.Nd
+	n:	Number of domain, 0 < n <= self.Nd_IGM
 
 	Returns:
 	--------
 	U:	3x3 complex numpy array with total transfer matrix 
 	"""
 
-	ones	= np.ones(self.Nd)
-	n	= np.array(range(1,self.Nd+1))
-	En	= self.E0*(ones + (n-ones)*self.dz)		# Energy in all domains
-	Bn	= self.B0*(ones + (n-ones)*self.dz)**2.		# B-field in all domains
-	neln	= self.n0*(ones + (n-ones)*self.dz)**3.		# electron density in all domains
+	ones	= np.ones(self.Nd_IGM)
+	n	= np.array(range(1,self.Nd_IGM+1))
+	En	= self.E0*(ones + (n-ones)*self.dz)		# Energy in all domains in GeV
+	Bn	= self.B0*(ones + (n-ones)*self.dz)**2.		# B-field in all domains in nG
+	neln	= self.n0*(ones + (n-ones)*self.dz)**3.		# electron density in all domains in 1e-7 cm^-3
 
 	# calculate mean free path according to De Angelis et al. (2011) Eq. 131
-	difftau	= (self.tau.opt_depth_array(n*self.dz , self.E0) - self.tau.opt_depth_array((n-ones)*self.dz , self.E0)).transpose()[0]
+	difftau	= (self.tau.opt_depth_array(n*self.dz , self.E0 / 1e3) - self.tau.opt_depth_array((n-ones)*self.dz , self.E0 / 1e3)).transpose()[0]
 	difftau[difftau < 1e-20] = np.ones(difftau.shape[0])[difftau < 1e-20] * 1e-20	# set to 1e-20 if difference is smaller
 
 	self.Ln	= 4.29e3*self.dz / (ones + 1.45*(n - ones)*self.dz)
 
 	mfn	= self.Ln / difftau / self.ebl_norm 	# mean free path
 
-	delta_pl_n		= Delta_pl_Mpc(neln,En)
-	delta_QED_n		= Delta_QED_Mpc(Bn,En)
+	delta_pl_n		= Delta_pl_Mpc(neln,En / 1e3)
+	delta_QED_n		= Delta_QED_Mpc(Bn,En / 1e3)
 	self.delta_par_n	= delta_pl_n + 3.5 * delta_QED_n
 	self.delta_perp_n	= delta_pl_n + 2.* delta_QED_n
-	self.delta_aa_n		= Delta_a_Mpc(self.m,En)
+	self.delta_aa_n		= Delta_a_Mpc(self.m * 10.,En / 1e3)
 	self.delta_ag_n		= Delta_ag_Mpc(self.g,Bn)
 	self.delta_abs_n	= 0.5j/mfn
 
@@ -436,18 +310,18 @@ class PhotALPs(object):
 ###
 	self.Dn	= np.sqrt((self.delta_aa_n - self.delta_par_n - self.delta_abs_n) ** 2. + 4.*self.delta_ag_n**2.)
 
-	self.EW1n = self.delta_perp_n + self.delta_abs_n
-	self.EW2n = 0.5 * (self.delta_aa_n + self.delta_par_n + self.delta_abs_n - self.Dn)
-	self.EW3n = 0.5 * (self.delta_aa_n + self.delta_par_n + self.delta_abs_n + self.Dn)
+	self.EW1n_IGM = self.delta_perp_n + self.delta_abs_n
+	self.EW2n_IGM = 0.5 * (self.delta_aa_n + self.delta_par_n + self.delta_abs_n - self.Dn)
+	self.EW3n_IGM = 0.5 * (self.delta_aa_n + self.delta_par_n + self.delta_abs_n + self.Dn)
 
-	self.__SetT1n_E()
-	self.__SetT2n_E()
-	self.__SetT3n_E()
+	self.__SetT1n_IGM()
+	self.__SetT2n_IGM()
+	self.__SetT3n_IGM()
 
-	self.__SetUn_E()
-	for i in range(self.Nd):
+	self.__SetUn_IGM()
+	for i in range(self.Nd_IGM):
 	    if not i:
-		U = self.Un[:,:,i]
+		U = self.Un_IGM[:,:,i]
 	    else:
-		U = np.dot(self.Un[:,:,i],U)
+		U = np.dot(self.Un_IGM[:,:,i],U)
 	return U

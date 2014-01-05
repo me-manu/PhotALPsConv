@@ -32,7 +32,6 @@ class PhotALPs_ICM(object):
     m:		ALP mass in neV
     n:		thermal electron density in the cluster, in 10^{-3} cm^-3
     Nd:		number of domains, Lcoh/r_abell
-    xi:		g * B
     Psin:	random angle in domain n between transverse B field and propagation direction
     T1:		Transfer matrix 1 (3x3xNd)-matrix
     T2:		Transfer matrix 2 (3x3xNd)-matrix		
@@ -55,8 +54,7 @@ class PhotALPs_ICM(object):
     http://adsabs.harvard.edu/abs/2011PhRvD..84j5030D
     http://adsabs.harvard.edu/abs/2012PhRvD..86g5024H
     """
-    def __init__(self, Lcoh=10., B=1., r_abell=1500.*h , E_GeV = 1000., g = 1., m = 1., n = 1., 
-		Bn_const = True, r_core = 200.,beta = 2./3., eta = 1.):
+    def __init__(self, **kwargs):
 	"""
 	init photon axion conversion in intracluster medium
 
@@ -89,25 +87,44 @@ class PhotALPs_ICM(object):
 	    B(r) = B * (n_e(r)/n) ** eta
 	with typical values 1 muG <= B <= 15muG and 0.5 <= eta <= 1
 	"""
+# --- Set the defaults 
+	kwargs.setdefault('g',1.)
+	kwargs.setdefault('m',1.)
+	kwargs.setdefault('B',1.)
+	kwargs.setdefault('n',1.)
+	kwargs.setdefault('Lcoh',1.)
+	kwargs.setdefault('r_abell',1.)
+	kwargs.setdefault('r_core',200.)
+	kwargs.setdefault('E_GeV',1.)
+	kwargs.setdefault('Bn_const',True)
+	kwargs.setdefault('beta',2. / 3.)
+	kwargs.setdefault('eta',1.)
+# --------------------
+	self.update_params(**kwargs)
 
-	self.Nd		= int(r_abell / Lcoh)	# number of domains, no expansion assumed
-	self.Lcoh	= Lcoh
-	self.E		= E_GeV
-	self.g		= g
-	self.m		= m
-	if Bn_const:
-	    self.n		= n * np.ones(int(self.Nd))	# assuming a constant electron density over all domains
-	    self.B		= B * np.ones(int(self.Nd))	# assuming a constant B-field over all domains
+	super(PhotALPs_ICM,self).__init__()
+
+    def update_params(self, **kwargs):
+	"""Update all parameters with new values and initialize all matrices"""
+
+	self.__dict__.update(kwargs)
+
+	self.Nd		= int(self.r_abell / self.Lcoh)	# number of domains, no expansion assumed
+
+	if self.Bn_const:
+	    self.n		= self.n * np.ones(int(self.Nd))	# assuming a constant electron density over all domains
+	    self.B		= self.B * np.ones(int(self.Nd))	# assuming a constant B-field over all domains
 	else:
-	    r	= np.linspace(Lcoh, r_abell + Lcoh, int(self.Nd))
-	    self.n = n * (np.ones(int(self.Nd)) + r**2./r_core**2.)**(-1.5 * beta)
+	    r	= np.linspace(self.Lcoh, self.r_abell + self.Lcoh, int(self.Nd))
+	    self.n = n * (np.ones(int(self.Nd)) + r**2./self.r_core**2.)**(-1.5 * self.beta)
 	    self.B = B * (self.n/n)**eta
-	self.xi		= g * B			# xi parameter as in IGM case, in kpc
+
 	self.Psin	= 2. * np.pi * rand(1,int(self.Nd))[0]	# angle between photon propagation on B-field in all domains
 	self.T1		= np.zeros((3,3,self.Nd),np.complex)	# Transfer matrices
 	self.T2		= np.zeros((3,3,self.Nd),np.complex)
 	self.T3		= np.zeros((3,3,self.Nd),np.complex)
 	self.Un		= np.zeros((3,3,self.Nd),np.complex)
+
 	return
 
     def new_random_psi(self):

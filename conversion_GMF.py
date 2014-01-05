@@ -42,13 +42,14 @@ class PhotALPs_GMF(PhotALPs_ICM):
     NE2001: flag if NE2001 code is used to compute thermal enectron density
     """
 
-    def __init__(self, pol_t = 1./np.sqrt(2.) , pol_u = 1./np.sqrt(2.), g = 1., m = 1., n = 1.e4, 
-		galactic = -1., rho_max = 20., zmax = 50., d = -8.5,Lcoh = 0.01, NE2001 = False, model = 'jansson', model_sym = 'ASS'):
+    #def __init__(self, pol_t = 1./np.sqrt(2.) , pol_u = 1./np.sqrt(2.), g = 1., m = 1., n = 1.e4, 
+		#galactic = -1., rho_max = 20., zmax = 50., d = -8.5,Lcoh = 0.01, NE2001 = False, model = 'jansson', model_sym = 'ASS'):
+    def __init__(self, **kwargs):
 	"""
 	init GMF class
 
-	Parameters
-	----------
+	kwargs	
+	------
 	pol_t: float (optional)
 	    polarization of photon beam in one transverse direction
 	    default: 0.5
@@ -83,33 +84,49 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	"""
 
 
-	if not (model == 'jansson' or model == 'pshirkov'):
-	    raise ValueError('Unknown GMF model: {0}! Use pshirkov or jansson.'.format(model))
-	if not (model_sym == 'ASS' or model_sym == 'BSS'):
-	    raise ValueError('Unknown symmetry for GMF model: {0}! Use ASS or BSS.'.format(model))
+# --- set defaults 
+	kwargs.setdefault('pol_t',0.5)
+	kwargs.setdefault('pol_u',0.5)
+	kwargs.setdefault('pol_a',0.)
+	kwargs.setdefault('g',1.)
+	kwargs.setdefault('m', 1.)
+	kwargs.setdefault('nGMF',1.e4)
+	kwargs.setdefault('galactic',-1.)
+	kwargs.setdefault('rho_max',20.)
+	kwargs.setdefault('zmax',50.)
+	kwargs.setdefault('d',-8.5)
+	kwargs.setdefault('Lcoh',0.01)
+	kwargs.setdefault('NE2001', False)
+	kwargs.setdefault('model','jansson')
+	kwargs.setdefault('model_sym','ASS')
+
+	self.update_params_GMF(**kwargs)
 
 	# ALP parameters g,m,n: already provided in super call
-	super(PhotALPs_GMF,self).__init__(g = g, m = m, n = n, Lcoh = Lcoh)	#Inherit everything from PhotALPs_ICM
+	#super(PhotALPs_GMF,self).__init__(g = self.g, m = self.m, n = self.n, Lcoh = self.Lcoh)	#Inherit everything from PhotALPs_ICM
+	super(PhotALPs_GMF,self).__init__(**kwargs)	#Inherit everything from PhotALPs_ICM
+
+	return
+
+    def update_params_GMF(self, **kwargs):
+	"""Update all parameters with new values and initialize GMF model"""
+
+	self.__dict__.update(**kwargs)			# form instance of kwargs
+
+	if not (self.model == 'jansson' or self.model == 'pshirkov'):
+	    raise ValueError('Unknown GMF model: {0}! Use pshirkov or jansson.'.format(self.model))
+	if not (self.model_sym == 'ASS' or self.model_sym == 'BSS'):
+	    raise ValueError('Unknown symmetry for GMF model: {0}! Use ASS or BSS.'.format(self.model))
 
 	self.l		= 0.
 	self.b		= 0.
 	self.smax	= 0.
-	self.pol_t	= pol_t
-	self.pol_u	= pol_u
-	self.rho_max	= rho_max
-	self.zmax	= zmax
-	self.galactic	= galactic
-	self.d		= d
-	self.NE2001	= NE2001
-
-
 	self.E		= 0.	# Energy in GeV
 
-	self.model	= model
-	if model == 'jansson':
+	if self.model == 'jansson':
 	    self.Bgmf = gmf.GMF()	# Initialize the Bfield class
-	elif model == 'pshirkov':
-	    self.Bgmf = gmf.GMF_Pshirkov(mode = model_sym)	
+	elif self.model == 'pshirkov':
+	    self.Bgmf = gmf.GMF_Pshirkov(mode = self.model_sym)	
 
 	return
 
@@ -265,8 +282,7 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	    except IOError:			# if not already calculated, do it now and save to file with function dl
 		self.n = dl(sa,self.l,self.b,filename,d=self.d) * 1e3		# convert into 1e-3 cm^-3
 	else:
-	    n = self.n[0]
-	    self.n = n * np.ones(self.Nd)
+	    self.n = self.nGMF * np.ones(self.Nd)
 	# ----------------------------------------------------------------- #
 
 	self.n[self.n == 0.] = 1e-4 * np.ones(np.sum(self.n == 0.))
