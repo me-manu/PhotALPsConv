@@ -10,7 +10,8 @@ __version__=0.01
 __author__="M. Meyer // manuel.meyer@fysik.su.se"
 
 # --- Imports -------------- #
-from numpy import mean,nanmean,sqrt,sort,median,array
+#from numpy import mean,nanmean,sqrt,sort,median,array
+from numpy import mean,sqrt,sort,median,array
 from math import floor,ceil
 # -------------------------- #
 
@@ -26,9 +27,9 @@ def rms(x, axis=None):
     """calculate rms of x along axis axis"""
     return sqrt(mean(x**2, axis=axis))
 
-def nanrms(x, axis=None):
-    """calculate rms of x if x contains nans along axis axis"""
-    return sqrt(nanmean(x**2, axis=axis))
+#def nanrms(x, axis=None):
+#    """calculate rms of x if x contains nans along axis axis"""
+#    return sqrt(nanmean(x**2, axis=axis))
 
 def median_contours(P,axis = 0, conf = [0.68,0.95]):
     """

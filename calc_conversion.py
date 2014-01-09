@@ -92,46 +92,83 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 							# for a small example
 	self.update_params_all(**kwargs)
 
+	# --- init random angles
+	try:
+	    self.scenario.index('IGM')
+	    self.new_random_psi_IGM()
+	except ValueError:
+	    pass
+	try:
+	    self.scenario.index('ICM')
+	    self.new_random_psi()
+	except ValueError:
+	    pass
+
 	return
 
-    def update_params_all(self,**kwargs):
+    def update_params_all(self,new_init=True,**kwargs):
 	"""
 	Update all parameters and initial all matrices.
+
+	kwargs
+	------
+	new_init:	bool, if True, re-init all polarization matrices
 	"""
 
 	self.__dict__.update(kwargs)			# form instance of kwargs
 
-	self.update_params_Jet(**kwargs)		# update all parameters 
-	self.update_params_IGM(**kwargs)
-	self.update_params_GMF(**kwargs)
-	self.update_params(**kwargs)
-
+	# --- init params
+	try:
+	    self.scenario.index('IGM')
+	    self.update_params_IGM(**kwargs)
+	except ValueError:
+	    pass
+	try:
+	    self.scenario.index('ICM')
+	    self.update_params(**kwargs)
+	except ValueError:
+	    pass
+	try:
+	    self.scenario.index('Jet')
+	    self.update_params_Jet(**kwargs)
+	except ValueError:
+	    pass
+	try:
+	    self.scenario.index('GMF')
+	    self.update_params_GMF(**kwargs)
+	except ValueError:
+	    pass
 
 	# --- init initial and final polarization states ------ #
-	self.pol	= np.zeros((3,3))	# initial polarization state
-	self.pol[0,0]	= self.pol_t
-	self.pol[1,1]	= self.pol_u
-	self.pol[2,2]	= self.pol_a
+	if new_init:
+	    self.pol	= np.zeros((3,3))	# initial polarization state
+	    self.pol[0,0]	= self.pol_t
+	    self.pol[1,1]	= self.pol_u
+	    self.pol[2,2]	= self.pol_a
 
-	self.polt	= np.zeros((3,3))	
-	self.polu	= np.zeros((3,3))
-	self.pola	= np.zeros((3,3))
+	    self.polt	= np.zeros((3,3))	
+	    self.polu	= np.zeros((3,3))
+	    self.pola	= np.zeros((3,3))
 
-	self.polt[0,0]	= 1.
-	self.polu[1,1]	= 1.
-	self.pola[2,2]	= 1.
+	    self.polt[0,0]	= 1.
+	    self.polu[1,1]	= 1.
+	    self.pola[2,2]	= 1.
 
 	self.kwargs = kwargs	# save kwargs
 
 	return
 
-    def calc_conversion(self,EGeV):
+    def calc_conversion(self,EGeV,new_angles = True):
 	"""
 	Calculate conversion probailities for energies EGeV
 
 	Paramaters
 	----------
 	EGeV:	n-dim array, energies in GeV
+
+	kwargs
+	------
+	new_angles:	bool, if True, calculate new random angles. Default: True
 
 	Returns
 	-------
@@ -142,12 +179,15 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	# --- calculate new random angles
 	try:
 	    self.scenario.index('IGM')
-	    self.new_random_psi_IGM()
+	    if new_angles:
+		self.new_random_psi_IGM()
 	except ValueError:
 	    pass
 	try:
 	    self.scenario.index('ICM')
-	    self.new_random_psi()
+	    if new_angles:
+		self.new_random_psi()
+	    Psin	= self.Psin		# save values of Psi and Nd, altered by GMF calculation
 	except ValueError:
 	    pass
 
@@ -163,7 +203,7 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 		pass
 	    try:
 		self.scenario.index('ICM')
-		self.update_params(**self.kwargs)
+		self.update_params(**(self.kwargs))
 		T	= self.SetDomainN()
 		pol	= np.dot(T,np.dot(pol,T.transpose().conjugate()))	# new polarization matrix
 	    except ValueError:
@@ -185,23 +225,29 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	    try:
 		self.scenario.index('GMF')
 		Pt[i],Pu[i],Pa[i]= np.real(self.Pag_TM(self.E,self.ra,self.dec,pol))	# mixing in GMF
+		try:
+		    self.scenario.index('ICM')
+		    self.Psin	= Psin		# restore values of Psin 
+		except ValueError:
+		    pass
 	    except ValueError:
 		pass
 	return Pt,Pu,Pa
 
-    def calc_pggave_conversion(self, bins, func, pfunc, Esteps = 50):
+    def calc_pggave_conversion(self, bins, func, pfunc, new_angles = True, Esteps = 50):
 	"""
 	Calculate average photon transfer matrix from an interpolation
 
 	Parameters
 	----------
-	bins:	n+1 -dim array with bin boundaries
+	bins:	n+1 -dim array with bin boundaries in GeV
 	func:	function used for averaging, has to be called with func(pfunc,E)
 	pfunc:	parameters for function
 
 	kwargs
 	------
 	Esteps: int, number of energies to interpolate photon survival probability, default: 50
+	new_angles:	bool, if True, calculate new random angles. Default: True
 
 	Returns
 	-------
@@ -211,7 +257,7 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	logEGeV = np.linspace(np.log(bins[0] * 0.9), np.log(bins[-1] * 1.1), Esteps)
 
 	# --- calculate the photon survival probability
-	Pt,Pu,Pa = self.calc_conversion(np.exp(logEGeV))
+	Pt,Pu,Pa = self.calc_conversion(np.exp(logEGeV), new_angles = new_angles)
 
 	# --- calculate the average with interpolation
 	self.pgg	= interp1d(logEGeV,np.log(Pt + Pu))

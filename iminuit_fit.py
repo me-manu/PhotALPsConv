@@ -9,10 +9,11 @@ with different functions.
 History:
 --------
 - 12/16/2013: version 0.01 - created
+- 01/08/2014: version 0.02 - added fit for ICM environment and included calc_conversion class
 """
 
 __author__ = "Manuel Meyer // manuel.meyer@fysik.su.se"
-__version__ = 0.01
+__version__ = 0.02
 
 # --- Imports ------------ #
 import numpy as np
@@ -28,21 +29,25 @@ import PhotALPsConv.conversion_Jet as JET
 import PhotALPsConv.conversion as IGM 
 import PhotALPsConv.conversion_ICM as ICM 
 import PhotALPsConv.conversion_GMF as GMF 
+import PhotALPsConv.calc_conversion as CC
 # --- EBL imports
 import eblstud.ebl.tau_from_model as TAU
 from eblstud.misc.bin_energies import calc_bin_bounds
 from eblstud.tools.iminuit_fit import pl,lp
 # ------------------------ #
 
+logging.basicConfig(level = logging.DEBUG)
 # - Chi functions --------------------------------------------------------------------------- #
 errfunc = lambda func, p, x, y, s: (func(p, x)-y) / s
 
-# - Power Law Fit to data corrected for abs. w/ ALP within Jet and GMF B-fields ------------- #
-class Fit_JetGMF(JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
+# ------------------------------------------------------------------------------------------- #
+# - Init the class -------------------------------------------------------------------------- #
+# ------------------------------------------------------------------------------------------- #
+class Fit_JetICMGMF(CC.Calc_Conv):
     def __init__(self,x,y,s,bins = None, **kwargs):
 	"""
 	Class to fit Powerlaw to data using minuit.migrad
-	Data is corrected for absorption using the B-field environments of an AGN Jet and the GMF
+	Data is corrected for absorption using the B-field environments of either an AGN Jet or intracluster medium  and the GMF
 
 	y(x) = p['Prefactor'] * ( x / p['Scale'] ) ** p['Index']
 	y_abs = < P gg > * y_obs
@@ -51,7 +56,7 @@ class Fit_JetGMF(JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 
 	Parameters
 	----------
-	x:		n-dim array containing the measured x values
+	x:		n-dim array containing the measured x values in TeV
 	y:		n-dim array containing the measured y values, i.e. y = y(x)
 	s: 		n-dim array with (symmetric) measurment uncertainties on y
 
@@ -59,47 +64,18 @@ class Fit_JetGMF(JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	------
 	bins:		n+1 dim array with boundaries. if none, comupted from x data.
 
-	z:		float, redshift of the source
-	ra:		float, right ascension of the source, in degree
-	dec:		float, declination of the source, in degree
 	func:		Function that describes the observed spectrum and takes x and pobs as parameters, y = func(x,pobs)
 	pobs:		parameters for function
 
-	Rmax:		distance up to which jet extends, in pc.
-	Bjet:		field strength at r = R_BLR in G, default: 0.1 G
-	R_BLR:		Distance of broad line region (BLR) to centrum in pc, default: 0.3 pc
-	g:		Photon ALP coupling in 10^{-11} GeV^-1, default: 1.
-	m:		ALP mass in neV, default: 1.
-	njet:		electron density in the jet at r = R_BLR, in cm^-3, default: 1e3
-	s:		exponent for scaling of electron density, default: 2.
-	p:		exponent for scaling of magneitc field, default: 1.
-	sens:		scalar < 1., sets the number of domains, for the B field in the n-th domain, 
-			it will have changed by B_n = sens * B_{n-1}
-	Psi:		scalar, angle between B field and transversal photon polarization, default: 0.
-	model:		GMF model that is used. Currently available: pshirkov (ASS), jansson (default)
-	ebl:		EBL model that is used. defaut: gilmore
-	nE:		int, number of energy points used to calculate average Pgg in each energy bin, default: 30
-	Esteps:		int, number of energy points used for interpolation of Pgg, default: 50
-	NE2001:		bool, if true, use ne2001 code to calculate electron density in the Milky Way
-			default: True
-
-	pol_t: 		float, initial photon polarization
-	pol_u: 		float, initial photon polarization
-	pol_a: 		float, initial ALP polarization
-	t + u + a != 1
+	and all kwargs from PhotALPsConv.calc_conversion.Calc_Conv.
 
 	"""
 # --- Set the defaults 
-	kwargs.setdefault('z',None)
-	kwargs.setdefault('ra',None)
-	kwargs.setdefault('dec',None)
 	kwargs.setdefault('func',None)
 	kwargs.setdefault('pobs',None)
 # --------------------
 	kwargs.setdefault('nE',30)
 	kwargs.setdefault('Esteps',50)
-	kwargs.setdefault('model','jansson')
-	kwargs.setdefault('ebl','gilmore')
 # --------------------
 
 	for k in kwargs.keys():
@@ -108,7 +84,7 @@ class Fit_JetGMF(JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	if not len(x) == len(y) or not len(x) == len(s) or not len(y) == len(s):
 	    raise TypeError("Lists must have same length!")
 
-	super(Fit_JetGMF,self).__init__(**kwargs)	# init the jet mixing and gmf mixing, see e.g.
+	super(Fit_JetICMGMF,self).__init__(**kwargs)	# init the jet mixing and gmf mixing, see e.g.
 							# http://stackoverflow.com/questions/3277367/how-does-pythons-super-work-with-multiple-inheritance
 							# for a small example
 	self.__dict__.update(kwargs)			# form instance of kwargs
@@ -123,21 +99,6 @@ class Fit_JetGMF(JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 
 	if bins == None or not len(bins) == x.shape[0] + 1:
 	    self.bins = calc_bin_bounds(x)
-
-# --- init ALP mixing 
-	self.pol		= np.zeros((3,3))
-	self.polt	= np.zeros((3,3))
-	self.polu	= np.zeros((3,3))
-	self.pola	= np.zeros((3,3))
-
-	self.polt[0,0]	= 1.
-	self.polu[1,1]	= 1.
-	self.pola[2,2]	= 1.
-	self.pol[0,0]	= self.pol_t
-	self.pol[1,1]	= self.pol_u
-	self.pol[2,2]	= self.pol_a
-
-	self.tau = TAU.OptDepth(model = kwargs['ebl'])	# init opt depth
 
 # --- create 2-dim energy and tau arrays to compute average mixing in each energy bin
 	for i,E in enumerate(self.bins):
@@ -154,59 +115,15 @@ class Fit_JetGMF(JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 		self.logE_array	= np.vstack((self.logE_array,logE))
 
 	return
-	
-    def calc_PggAve(self, Esteps = 50):
+
+# ----------------------------------------------------------------------------- #
+# ---- Chi square functions --------------------------------------------------- #
+# ----------------------------------------------------------------------------- #
+# --- Jet + GMF scenario ------------------------------------------------------ #
+# ----------------------------------------------------------------------------- #
+    def FillChiSq_JetGMF(self,Prefactor,Index,Scale,Rmax,Bjet,g,m,njet):
 	"""
-	Calculate average transfer matrix for mixing in Jet and GMF and EBL absorption
-	from an interpolation
-
-	kwargs
-	------
-	Esteps: int, number of energies to interpolate photon survival probability, default: 50
-
-	Returns
-	-------
-	n-dim array with average photon survival probability for each bin
-	"""
-
-	logETeV = np.linspace(np.log(self.bins[0] * 0.9), np.log(self.bins[-1] * 1.1), Esteps)
-	atten	= np.exp(-self.tau.opt_depth_array(self.z,np.exp(logETeV))[0])
-	Pt,Pu,Pa = np.zeros(logETeV.shape[0]),np.zeros(logETeV.shape[0]),np.zeros(logETeV.shape[0])
-
-	# --- calculate the photon survival probability
-	for i,E in enumerate(logETeV):
-	    self.E	= np.exp(logETeV[i]) * 1e3
-	    Tjet	= self.SetDomainN_Jet()	# mixing in jet
-	    pol_jet	= np.dot(Tjet,np.dot(self.pol,Tjet.transpose().conjugate()))
-	    polt	= np.real(np.sum(np.diag(np.dot(self.polt,pol_jet))))
-	    polu	= np.real(np.sum(np.diag(np.dot(self.polu,pol_jet))))
-	    pola	= np.real(np.sum(np.diag(np.dot(self.pola,pol_jet))))
-	    pol_new	= np.diag([polt * atten[i],polu * atten[i], pola])
-	    Pt[i], Pu[i], Pa[i] = np.real(self.Pag_TM(self.E,self.ra,self.dec,pol_new))	# mixing in GMF
-	    #Pt[i], Pu[i], Pa[i] = polu,polt,pola
-
-	# --- calculate the average with interpolation
-	self.pgg	= interp1d(logETeV,np.log(Pt + Pu))
-
-	# --- calculate average correction for each bin
-	for i,E in enumerate(self.bins):
-	    if not i:
-		logE_array	= np.linspace(np.log(E),np.log(self.bins[i+1]),self.Esteps / 3)
-		pgg_array	= np.exp(self.pgg(logE_array))
-	    elif i == len(self.bins) - 1:
-		break
-	    else:
-		logE		= np.linspace(np.log(E),np.log(self.bins[i+1]),self.Esteps / 3)
-		logE_array	= np.vstack((logE_array,logE))
-		pgg_array	= np.vstack((pgg_array,np.exp(self.pgg(logE))))
-	# average transfer matrix over the bins
-	return	simps(self.func(self.pobs,np.exp(logE_array)) * pgg_array * logE_array, logE_array, axis = 1) / \
-		simps(self.func(self.pobs,np.exp(logE_array)) * logE_array, logE_array, axis = 1)
-
-
-    def FillChiSq(self,Prefactor,Index,Scale,Rmax,Bjet,g,m,njet):
-	"""
-	Calculate the chi^2 value
+	Calculate the chi^2 value for ALP conversion in Jet and GMF
 
 	Parameters
 	----------
@@ -214,10 +131,10 @@ class Fit_JetGMF(JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	Index:		float, power-law index
 	Scale:		float, power-law pivo energy
 	Rmax:		float, maximum radius of Bfield region, in pc
-	B:		float, magnetic field at r = R_BLR, in pc
+	Bjet:		float, magnetic field at r = R_BLR, in pc
 	g:		float, photon-ALP coupling constant, in 10^-11 GeV^-1
 	m:		float, ALP mass in neV
-	n:		float, ambient electron density at r = R_BLR, in cm^-3
+	njet:		float, ambient electron density at r = R_BLR, in cm^-3
 
 	Returns
 	-------
@@ -229,23 +146,80 @@ class Fit_JetGMF(JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	# if any ALP parameters have changed, re-calculate the average correction
 	if self.init or not g == self.g or not m == self.m or not Bjet == self.Bjet or not njet == self.njet or not Rmax == self.Rmax:
 	    alppar = {'Rmax': Rmax, 'Bjet': Bjet, 'g': g, 'm': m, 'njet': njet, 'R_BLR': self.R_BLR}
-	    self.update_params(**alppar)		# get the new params.
+	    self.update_params_Jet(**alppar)		# get the new params.
 	    self.g = g
 	    self.m = m
 	    self.Bjet = Bjet
 	    self.njet = njet
 	    self.Rmax = Rmax
 	# --- calculate the new deabsorbed data points
-	    self.PggAve = self.calc_PggAve(Esteps = self.Esteps)
+	    #self.PggAve = self.calc_PggAve(Esteps = self.Esteps)
+	    self.PggAve = self.calc_pggave_conversion(self.bins *1e3, self.func, self.pobs, Esteps = self.Esteps)
 	    if self.init:
 		self.init = False
 
 	# calculate chi^2
+	logging.debug("{0} {1}".format(self.g, g))
+	logging.debug("{0}".format(self.PggAve))
 	return np.sum(errfunc(pl,params,self.x,self.y / self.PggAve, self.yerr / self.PggAve)**2.)
+
+# ----------------------------------------------------------------------------- #
+# --- ICM + GMF scenario ------------------------------------------------------ #
+# ----------------------------------------------------------------------------- #
+
+    def FillChiSq_ICMGMF(self,Prefactor,Index,Scale,B,r_abell,Lcoh,g,m,n):
+	"""
+	Calculate the chi^2 value for ALP conversion in ICM and GMF
+
+	Parameters
+	----------
+	Prefactor:	float, power-law normalization
+	Index:		float, power-law index
+	Scale:		float, power-law pivo energy
+	r_abell:	float, radius of cluster, in kpc
+	B:		float, magnetic field 
+	g:		float, photon-ALP coupling constant, in 10^-11 GeV^-1
+	m:		float, ALP mass in neV
+	n:		float, ambient electron density 
+	Lcoh:		float, coherence length in kpc
+
+	Returns
+	-------
+	float, chi^2 value
+	"""
+
+	params = {'Prefactor': Prefactor, 'Index': Index, 'Scale': Scale}
+
+	# if any ALP parameters have changed, re-calculate the average correction
+	if np.isscalar(self.n):
+	    self.n = np.ones(self.Nd) * self.n
+	if np.isscalar(self.B):
+	    self.B = np.ones(self.Nd) * self.B
+
+	if self.init or not g == self.g or not m == self.m or not B == self.B[0] or not n == self.n[0] \
+	    or not r_abell == self.r_abell or not Lcoh == self.Lcoh:
+	    alppar = {'r_abell': r_abell, 'B': B, 'g': g, 'm': m, 'n': n, 'Lcoh': self.Lcoh}
+	    self.update_params(**alppar)		# get the new params.
+	    self.kwargs.update(alppar)
+	# --- calculate the new deabsorbed data points
+	    #self.PggAve = self.calc_PggAve(Esteps = self.Esteps)
+	    self.PggAve = self.calc_pggave_conversion(self.bins *1e3, self.func, self.pobs, Esteps = self.Esteps, new_angles = False)
+	    self.update_params(**alppar)		# B,n,L changed to GMF calc. With this call, they are restored to the ICM values.
+	    if self.init:
+		self.init = False
+
+	# calculate chi^2
+	logging.debug("{0} {1}".format(self.g, g))
+	logging.debug("{0}".format(self.PggAve))
+	return np.sum(errfunc(pl,params,self.x,self.y / self.PggAve, self.yerr / self.PggAve)**2.)
+
+# ----------------------------------------------------------------------------- #
+# ---- The fit function ------------------------------------------------------- #
+# ----------------------------------------------------------------------------- #
 
     def fit(self, **kwargs):
 	"""
-	Fit a power law to the intrinsic spectrum, deabsorbed with ALPs
+	Fit a power law to the intrinsic spectrum, deabsorbed with ALPs in B-field of either AGN Jet or ICM and GMF
 
 	kwargs
 	-------
@@ -282,13 +256,22 @@ class Fit_JetGMF(JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	kwargs.setdefault('print_level',0)		# no output
 	kwargs.setdefault('int_steps',0.1)		# Initial step width, multiply with initial values in m.errors
 	kwargs.setdefault('strategy',1)		# 0 = fast, 1 = default, 2 = thorough
-	kwargs.setdefault('tol',1.)			# Tolerance of fit = 0.001*tol*UP
+	kwargs.setdefault('tol',0.1)			# Tolerance of fit = 0.001*tol*UP
 	kwargs.setdefault('up',1.)			# 1 for chi^2, 0.5 for log-likelihood
 	kwargs.setdefault('ncall',1000.)		# number of maximum calls
 	kwargs.setdefault('pedantic',True)		# Give all warnings
 	kwargs.setdefault('limits',{})
 	kwargs.setdefault('pinit',{})
-	kwargs.setdefault('fix',{'Prefactor': False,'Scale': True,'Index': False,'g': False,'m': True,'n':True ,'B': True,'Rmax': True})	
+	try:
+	    self.scenario.index('Jet')
+	    kwargs.setdefault('fix',{'Prefactor': False,'Scale': True,'Index': False,'g': False,'m': True,'njet':True ,'Bjet': True,'Rmax': True})	
+	except ValueError:
+	    pass
+	try:
+	    self.scenario.index('ICM')
+	    kwargs.setdefault('fix',{'Prefactor': False,'Scale': True,'Index': False,'g': False,'m': True,'n':True ,'B': True,'r_abell': True, 'Lcoh':True})
+	except ValueError:
+	    pass
 # --------------------
 	self.init = True	# first function call to FillChiSq
 
@@ -302,13 +285,27 @@ class Fit_JetGMF(JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	    kwargs['limits']['Prefactor'] = (kwargs['pinit']['Prefactor'] / 1e2, kwargs['pinit']['Prefactor'] * 1e2)
 	    kwargs['limits']['Index'] = (-10.,2.)
 	    kwargs['limits']['Scale'] = (kwargs['pinit']['Scale'] / 1e2, kwargs['pinit']['Scale'] * 1e2)
-	    kwargs['limits']['g'] = (0.5,8.)
+	    kwargs['limits']['g'] = (0.1,8.)
 	    kwargs['limits']['m'] = (0.01,50.)
-	    kwargs['limits']['njet']	= (self.njet / 10. ,self.njet * 10. )
-	    kwargs['limits']['Bjet']	= (self.Bjet / 10. ,self.Bjet * 10. )
-	    kwargs['limits']['Rmax']	= (self.Rmax / 10. ,self.Rmax * 10. )
+	    try:
+		self.scenario.index('Jet')
+		kwargs['limits']['njet']	= (self.njet / 10. ,self.njet * 10. )
+		kwargs['limits']['Bjet']	= (self.Bjet / 10. ,self.Bjet * 10. )
+		kwargs['limits']['Rmax']	= (self.Rmax / 10. ,self.Rmax * 10. )
+	    except ValueError:
+		pass
+	    try:
+		self.scenario.index('ICM')
+		kwargs['limits']['n']	= (self.n / 10. ,self.n * 10. )
+		kwargs['limits']['B']	= (self.B / 10. ,self.B * 10. )
+		kwargs['limits']['r_abell']	= (self.r_abell/ 10. ,self.r_abell* 10. )
+		kwargs['limits']['Lcoh']	= (self.Lcoh / 10. ,self.Lcoh * 10. )
+	    except ValueError:
+		pass
 
-	m = minuit.Minuit(self.FillChiSq, print_level = kwargs['print_level'],
+	try:
+	    self.scenario.index('Jet')
+	    m = minuit.Minuit(self.FillChiSq_JetGMF, print_level = kwargs['print_level'],
 			    # initial values
 			    Prefactor	= kwargs['pinit']["Prefactor"],
 			    Index = kwargs['pinit']["Index"],
@@ -349,6 +346,57 @@ class Fit_JetGMF(JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 			    pedantic	= kwargs['pedantic'],
 			    errordef	= kwargs['up'],
 			    )
+	except ValueError:
+	    pass
+	try:
+	    self.scenario.index('ICM')
+	    m = minuit.Minuit(self.FillChiSq_ICMGMF, print_level = kwargs['print_level'],
+			    # initial values
+			    Prefactor	= kwargs['pinit']["Prefactor"],
+			    Index = kwargs['pinit']["Index"],
+			    Scale = kwargs['pinit']["Scale"],
+			    g = self.g,
+			    m = self.m,
+			    B = self.B,
+			    r_abell = self.r_abell,
+			    Lcoh = self.Lcoh,
+			    n = self.n,
+			    # errors
+			    error_Prefactor	= kwargs['pinit']['Prefactor'] * kwargs['int_steps'],
+			    error_Index		= kwargs['pinit']['Index'] * kwargs['int_steps'],
+			    error_Scale		= 0.,
+			    error_g		= self.g * kwargs['int_steps'],
+			    error_m		= self.m * kwargs['int_steps'],
+			    error_B 		= self.B * kwargs['int_steps'],
+			    error_r_abell	= self.r_abell * kwargs['int_steps'],
+			    error_Lcoh		= self.Lcoh * kwargs['int_steps'],
+			    error_n		= self.n * kwargs['int_steps'],
+			    # limits
+			    limit_Prefactor = kwargs['limits']['Prefactor'],
+			    limit_Index	= kwargs['limits']['Index'],
+			    limit_Scale	= kwargs['limits']['Scale'],
+			    limit_g	= kwargs['limits']["g"],
+			    limit_m	= kwargs['limits']["m"],
+			    limit_B	= kwargs['limits']["B"],
+			    limit_n	= kwargs['limits']["n"],
+			    limit_r_abell= kwargs['limits']["r_abell"],
+			    limit_Lcoh	= kwargs['limits']["Lcoh"],
+			    # freeze parametrs 
+			    fix_Prefactor	= kwargs['fix']['Prefactor'],
+			    fix_Index	= kwargs['fix']['Index'],
+			    fix_Scale	= kwargs['fix']['Scale'],
+			    fix_g	= kwargs['fix']["g"],
+			    fix_m	= kwargs['fix']["m"],
+			    fix_B	= kwargs['fix']["B"],
+			    fix_n	= kwargs['fix']["n"],
+			    fix_r_abell	= kwargs['fix']["r_abell"],
+			    fix_Lcoh	= kwargs['fix']["Lcoh"],
+			    # setup
+			    pedantic	= kwargs['pedantic'],
+			    errordef	= kwargs['up'],
+			    )
+	except ValueError:
+	    pass
 
 	npar = 0
 	for k in kwargs['fix']:
@@ -392,3 +440,4 @@ class Fit_JetGMF(JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	    return fit_stat,m.values, m.errors,m.merrors, m.covariance
 	else:	
 	    return fit_stat,m.values, m.errors
+# end.

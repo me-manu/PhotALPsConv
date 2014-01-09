@@ -143,13 +143,11 @@ class PhotALPs(object):
 
 	self.Nd_IGM = int(ceil(0.85e3*5./self.L0*self.z))	# Number of domains 
 								# see De Angelis et al. Eq 114
-
 	self.dn		= 0.
 	self.EW1n_IGM	= 0.
 	self.EW2n_IGM	= 0.
 	self.EW3n_IGM	= 0.
 	self.Dn		= 0.
-	self.Psin_IGM	= 2. * np.pi * rand(1,int(self.Nd_IGM))[0]	# angle between photon propagation on B-field in i-th domain 
 								# random realizations
 	self.T1_IGM		= np.zeros((3,3,self.Nd_IGM),np.complex)
 	self.T2_IGM		= np.zeros((3,3,self.Nd_IGM),np.complex)

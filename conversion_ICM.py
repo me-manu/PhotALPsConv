@@ -119,7 +119,6 @@ class PhotALPs_ICM(object):
 	    self.n = n * (np.ones(int(self.Nd)) + r**2./self.r_core**2.)**(-1.5 * self.beta)
 	    self.B = B * (self.n/n)**eta
 
-	self.Psin	= 2. * np.pi * rand(1,int(self.Nd))[0]	# angle between photon propagation on B-field in all domains
 	self.T1		= np.zeros((3,3,self.Nd),np.complex)	# Transfer matrices
 	self.T2		= np.zeros((3,3,self.Nd),np.complex)
 	self.T3		= np.zeros((3,3,self.Nd),np.complex)
