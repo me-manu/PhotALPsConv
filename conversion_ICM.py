@@ -116,8 +116,8 @@ class PhotALPs_ICM(object):
 	    self.B		= self.B * np.ones(int(self.Nd))	# assuming a constant B-field over all domains
 	else:
 	    r	= np.linspace(self.Lcoh, self.r_abell + self.Lcoh, int(self.Nd))
-	    self.n = n * (np.ones(int(self.Nd)) + r**2./self.r_core**2.)**(-1.5 * self.beta)
-	    self.B = B * (self.n/n)**eta
+	    self.n = self.n * (np.ones(int(self.Nd)) + r**2./self.r_core**2.)**(-1.5 * self.beta)
+	    self.B = kwargs['B'] * (self.n / kwargs['n'])**self.eta
 
 	self.T1		= np.zeros((3,3,self.Nd),np.complex)	# Transfer matrices
 	self.T2		= np.zeros((3,3,self.Nd),np.complex)

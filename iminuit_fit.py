@@ -187,7 +187,6 @@ class Fit_JetICMGMF(CC.Calc_Conv):
 	-------
 	float, chi^2 value
 	"""
-
 	params = {'Prefactor': Prefactor, 'Index': Index, 'Scale': Scale}
 
 	# if any ALP parameters have changed, re-calculate the average correction
@@ -196,13 +195,17 @@ class Fit_JetICMGMF(CC.Calc_Conv):
 	if np.isscalar(self.B):
 	    self.B = np.ones(self.Nd) * self.B
 
-	if self.init or not g == self.g or not m == self.m or not B == self.B[0] or not n == self.n[0] \
+	#if self.init or not g == self.g or not m == self.m or not B == self.B[0] or not n == self.n[0] \
+	if self.init or not np.exp(g) == self.g or not m == self.m or not B == self.B[0] or not n == self.n[0] \
 	    or not r_abell == self.r_abell or not Lcoh == self.Lcoh:
-	    alppar = {'r_abell': r_abell, 'B': B, 'g': g, 'm': m, 'n': n, 'Lcoh': self.Lcoh}
+	    alppar = {'r_abell': r_abell, 'B': B, 'g': np.exp(g), 'm': m, 'n': n, 'Lcoh': self.Lcoh}
+	    #alppar = {'r_abell': r_abell, 'B': B, 'g': g, 'm': m, 'n': n, 'Lcoh': self.Lcoh}
 	    self.update_params(**alppar)		# get the new params.
 	    self.kwargs.update(alppar)
-	# --- calculate the new deabsorbed data points
-	    #self.PggAve = self.calc_PggAve(Esteps = self.Esteps)
+	#    if g < 0:
+	#	self.PggAve = np.exp(self.tau.opt_depth_Ebin(self.z,self.bins,self.func, self.pobs))
+	#    else:
+# --- calculate the new deabsorbed data points
 	    self.PggAve = self.calc_pggave_conversion(self.bins *1e3, self.func, self.pobs, Esteps = self.Esteps, new_angles = False)
 	    self.update_params(**alppar)		# B,n,L changed to GMF calc. With this call, they are restored to the ICM values.
 	    if self.init:
@@ -224,7 +227,10 @@ class Fit_JetICMGMF(CC.Calc_Conv):
 	kwargs
 	-------
 	full_output:	bool, if True, errors will be estimated additionally with minos, covariance matrix will also be returned
-	minos_conf:	float, confidence level for minos error estimation, default: 1.
+	minos_conf:	float or list, confidence level for minos error estimation, default: 1.
+	minos_only:	string, if None, use minos for all parameters, else use minos only for specified parameter
+	sample_chi2:	int, if > 0 and minos_only and full_output are set, this sets the number of bins to 
+			profile over Chi2 (using Minos) for parameter specified with minos_only within 3 sigma of best fit.
 	print_level:	0,1, level of verbosity, defualt = 0 means nothing is printed
 	int_steps:	float, initial step width, multiply with initial values of errors, default = 0.1
 	strategy:	0 = fast, 1 = default (default), 2 = thorough
@@ -253,6 +259,8 @@ class Fit_JetICMGMF(CC.Calc_Conv):
 # --------------------
 	kwargs.setdefault('full_output',True)
 	kwargs.setdefault('minos_conf',1.)
+	kwargs.setdefault('minos_only','None')
+	kwargs.setdefault('sample_chi2',0)
 	kwargs.setdefault('print_level',0)		# no output
 	kwargs.setdefault('int_steps',0.1)		# Initial step width, multiply with initial values in m.errors
 	kwargs.setdefault('strategy',1)		# 0 = fast, 1 = default, 2 = thorough
@@ -275,16 +283,9 @@ class Fit_JetICMGMF(CC.Calc_Conv):
 # --------------------
 	self.init = True	# first function call to FillChiSq
 
-	if not len(kwargs['pinit']):
-	    kwargs['pinit']['Scale']	= self.x[np.argmax(self.y/self.yerr)]
-	    kwargs['pinit']['Prefactor']= prior_norm(self.x / kwargs['pinit']['Scale'],self.y)
-	    kwargs['pinit']['Index']	= prior_pl_ind(self.x / kwargs['pinit']['Scale'],self.y)
-	else:
-	    kwargs['pinit']['Prefactor'] /= 10.**self.exp
+
 	if not len(kwargs['limits']):
-	    kwargs['limits']['Prefactor'] = (kwargs['pinit']['Prefactor'] / 1e2, kwargs['pinit']['Prefactor'] * 1e2)
 	    kwargs['limits']['Index'] = (-10.,2.)
-	    kwargs['limits']['Scale'] = (kwargs['pinit']['Scale'] / 1e2, kwargs['pinit']['Scale'] * 1e2)
 	    kwargs['limits']['g'] = (0.1,8.)
 	    kwargs['limits']['m'] = (0.01,50.)
 	    try:
@@ -303,10 +304,30 @@ class Fit_JetICMGMF(CC.Calc_Conv):
 	    except ValueError:
 		pass
 
+
+	if not len(kwargs['pinit']):
+	    cc = CC.Calc_Conv(**self.kwargs)		# has to be used here instead of self in order not to change self.kwargs
+	    Pgg = cc.calc_pggave_conversion(self.bins *1e3, self.func, self.pobs, Esteps = self.Esteps, new_angles = False)
+	    del cc
+	    kwargs['pinit']['Scale']	= self.x[np.argmax(self.y/self.yerr)]
+	    kwargs['pinit']['Prefactor']= prior_norm(self.x / kwargs['pinit']['Scale'],self.y / Pgg)
+	    kwargs['pinit']['Index']	= prior_pl_ind(self.x / kwargs['pinit']['Scale'],self.y / Pgg)
+	else:
+	    kwargs['pinit']['Prefactor'] /= 10.**self.exp
+
+	try:
+	    kwargs['limits'].keys().index('Prefactor')
+	except ValueError:
+	    kwargs['limits']['Prefactor'] = (kwargs['pinit']['Prefactor'] / 1e2, kwargs['pinit']['Prefactor'] * 1e2)
+	try:
+	    kwargs['limits'].keys().index('Scale')
+	except ValueError:
+	    kwargs['limits']['Scale'] = (kwargs['pinit']['Scale'] / 1e2, kwargs['pinit']['Scale'] * 1e2)
+
 	try:
 	    self.scenario.index('Jet')
 	    m = minuit.Minuit(self.FillChiSq_JetGMF, print_level = kwargs['print_level'],
-			    # initial values
+			    # --- initial values
 			    Prefactor	= kwargs['pinit']["Prefactor"],
 			    Index = kwargs['pinit']["Index"],
 			    Scale = kwargs['pinit']["Scale"],
@@ -315,7 +336,7 @@ class Fit_JetICMGMF(CC.Calc_Conv):
 			    Bjet = self.Bjet,
 			    Rmax = self.Rmax,
 			    njet = self.njet,
-			    # errors
+			    # --- errors
 			    error_Prefactor	= kwargs['pinit']['Prefactor'] * kwargs['int_steps'],
 			    error_Index		= kwargs['pinit']['Index'] * kwargs['int_steps'],
 			    error_Scale		= 0.,
@@ -324,7 +345,7 @@ class Fit_JetICMGMF(CC.Calc_Conv):
 			    error_Bjet		= self.Bjet * kwargs['int_steps'],
 			    error_Rmax		= self.Rmax * kwargs['int_steps'],
 			    error_njet		= self.njet * kwargs['int_steps'],
-			    # limits
+			    # --- limits
 			    limit_Prefactor = kwargs['limits']['Prefactor'],
 			    limit_Index	= kwargs['limits']['Index'],
 			    limit_Scale	= kwargs['limits']['Scale'],
@@ -333,7 +354,7 @@ class Fit_JetICMGMF(CC.Calc_Conv):
 			    limit_Bjet	= kwargs['limits']["Bjet"],
 			    limit_njet	= kwargs['limits']["njet"],
 			    limit_Rmax	= kwargs['limits']["Rmax"],
-			    # freeze parametrs 
+			    # --- freeze parametrs 
 			    fix_Prefactor	= kwargs['fix']['Prefactor'],
 			    fix_Index	= kwargs['fix']['Index'],
 			    fix_Scale	= kwargs['fix']['Scale'],
@@ -342,7 +363,7 @@ class Fit_JetICMGMF(CC.Calc_Conv):
 			    fix_Bjet		= kwargs['fix']["Bjet"],
 			    fix_njet		= kwargs['fix']["njet"],
 			    fix_Rmax	= kwargs['fix']["Rmax"],
-			    # setup
+			    # --- setup
 			    pedantic	= kwargs['pedantic'],
 			    errordef	= kwargs['up'],
 			    )
@@ -351,37 +372,40 @@ class Fit_JetICMGMF(CC.Calc_Conv):
 	try:
 	    self.scenario.index('ICM')
 	    m = minuit.Minuit(self.FillChiSq_ICMGMF, print_level = kwargs['print_level'],
-			    # initial values
+			    # --- initial values
 			    Prefactor	= kwargs['pinit']["Prefactor"],
 			    Index = kwargs['pinit']["Index"],
 			    Scale = kwargs['pinit']["Scale"],
-			    g = self.g,
+			    g = np.log(self.g),
+			    #g = self.g,
 			    m = self.m,
 			    B = self.B,
 			    r_abell = self.r_abell,
 			    Lcoh = self.Lcoh,
 			    n = self.n,
-			    # errors
+			    # --- errors
 			    error_Prefactor	= kwargs['pinit']['Prefactor'] * kwargs['int_steps'],
 			    error_Index		= kwargs['pinit']['Index'] * kwargs['int_steps'],
 			    error_Scale		= 0.,
-			    error_g		= self.g * kwargs['int_steps'],
+			    error_g		= np.log(self.g * kwargs['int_steps']),
+			    #error_g		= self.g * kwargs['int_steps'],
 			    error_m		= self.m * kwargs['int_steps'],
 			    error_B 		= self.B * kwargs['int_steps'],
 			    error_r_abell	= self.r_abell * kwargs['int_steps'],
 			    error_Lcoh		= self.Lcoh * kwargs['int_steps'],
 			    error_n		= self.n * kwargs['int_steps'],
-			    # limits
+			    # --- limits
 			    limit_Prefactor = kwargs['limits']['Prefactor'],
 			    limit_Index	= kwargs['limits']['Index'],
 			    limit_Scale	= kwargs['limits']['Scale'],
-			    limit_g	= kwargs['limits']["g"],
+			    limit_g	= np.log(kwargs['limits']["g"]),
+			    #limit_g	= kwargs['limits']["g"],
 			    limit_m	= kwargs['limits']["m"],
 			    limit_B	= kwargs['limits']["B"],
 			    limit_n	= kwargs['limits']["n"],
 			    limit_r_abell= kwargs['limits']["r_abell"],
 			    limit_Lcoh	= kwargs['limits']["Lcoh"],
-			    # freeze parametrs 
+			    # --- freeze parametrs 
 			    fix_Prefactor	= kwargs['fix']['Prefactor'],
 			    fix_Index	= kwargs['fix']['Index'],
 			    fix_Scale	= kwargs['fix']['Scale'],
@@ -391,7 +415,7 @@ class Fit_JetICMGMF(CC.Calc_Conv):
 			    fix_n	= kwargs['fix']["n"],
 			    fix_r_abell	= kwargs['fix']["r_abell"],
 			    fix_Lcoh	= kwargs['fix']["Lcoh"],
-			    # setup
+			    # --- setup
 			    pedantic	= kwargs['pedantic'],
 			    errordef	= kwargs['up'],
 			    )
@@ -417,12 +441,44 @@ class Fit_JetICMGMF(CC.Calc_Conv):
 	logging.info("PL Jet GMF: Hesse matrix calculation finished")
 
 	if kwargs['full_output']:
+	    merr = {}
 	    for k in kwargs['fix'].keys():
 		if kwargs['fix'][k]:
 		    continue
-		logging.info("PL Jet GMF: Running Minos for error estimation for parameter {0:s} at confidence level {1:.1f}".format(k,kwargs['minos_conf']))
-		m.minos(k,kwargs['minos_conf'])
+		if not kwargs['minos_only'] == 'None':
+		    if not k == kwargs['minos_only']:
+			continue
+		if np.isscalar(kwargs['minos_conf']):
+		    logging.info("PL Jet GMF: Running Minos for error estimation for parameter {0:s} at confidence level {1:.1f}".format(k,kwargs['minos_conf']))
+		    t = m.minos(k,kwargs['minos_conf'])
+		    if t['g']['lower_valid']:
+			merr[(k,-1. * kwargs['minos_conf'])] = t['g']['lower']
+		    else:
+			merr[(k,-1. * kwargs['minos_conf'])] = 0.
+		    if t['g']['upper_valid']:
+			merr[(k,kwargs['minos_conf'])] = t['g']['upper']
+		    else:
+			merr[(k,kwargs['minos_conf'])] = 0.
+		    del t
+		else:
+		    for i in kwargs['minos_conf']:
+			logging.info("PL Jet GMF: Running Minos for error estimation for parameter {0:s} at confidence level {1:.1f}".format(k,i))
+			t = m.minos(k,i)
+			if t['g']['lower_valid']:
+			    merr[(k,-1. * i )] = t['g']['lower']
+			else:
+			    merr[(k,-1. * i )] = 0.
+			if t['g']['upper_valid']:
+			    merr[(k,i )] = t['g']['upper']
+			else:
+			    merr[(k,i )] = 0.
+			del t
 	    logging.info("PL_JetGMF: Minos finished")
+	if kwargs['sample_chi2'] and not kwargs['minos_only'] == 'None' and kwargs['full_output']:
+	    #self.kwargs.update(m.fitarg)
+	    #self.update_params_all(**self.kwargs)
+	    #print m.fitarg
+	    profile = m.mnprofile(kwargs['minos_only'],bins = kwargs['sample_chi2'], bound = 3, subtract_min = True)
 
 	fit_stat = m.fval, float(len(self.x) - npar), pvalue(float(len(self.x) - npar), m.fval)
 
@@ -437,7 +493,10 @@ class Fit_JetICMGMF(CC.Calc_Conv):
 
 
 	if kwargs['full_output']:
-	    return fit_stat,m.values, m.errors,m.merrors, m.covariance
+	    if kwargs['sample_chi2']:
+		return fit_stat,m.values, m.errors,merr, m.covariance, profile
+	    else:
+		return fit_stat,m.values, m.errors,merr, m.covariance
 	else:	
 	    return fit_stat,m.values, m.errors
 # end.

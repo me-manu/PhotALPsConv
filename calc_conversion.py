@@ -187,7 +187,7 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	    self.scenario.index('ICM')
 	    if new_angles:
 		self.new_random_psi()
-	    Psin	= self.Psin		# save values of Psi and Nd, altered by GMF calculation
+	    Psin, Nd = self.Psin.copy(),self.Nd		# save values of Psi, altered by GMF calculation
 	except ValueError:
 	    pass
 
@@ -227,7 +227,7 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 		Pt[i],Pu[i],Pa[i]= np.real(self.Pag_TM(self.E,self.ra,self.dec,pol))	# mixing in GMF
 		try:
 		    self.scenario.index('ICM')
-		    self.Psin	= Psin		# restore values of Psin 
+		    self.Psin, self.Nd	= Psin.copy(),Nd		# restore values of Psin 
 		except ValueError:
 		    pass
 	    except ValueError:
@@ -274,5 +274,5 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 		logE_array	= np.vstack((logE_array,logE))
 		pgg_array	= np.vstack((pgg_array,np.exp(self.pgg(logE))))
 	# average transfer matrix over the bins
-	return	simps(self.func(self.pobs,np.exp(logE_array)) * pgg_array * logE_array, logE_array, axis = 1) / \
-		simps(self.func(self.pobs,np.exp(logE_array)) * logE_array, logE_array, axis = 1)
+	return	simps(self.func(self.pobs,np.exp(logE_array)) * pgg_array * np.exp(logE_array), logE_array, axis = 1) / \
+		simps(self.func(self.pobs,np.exp(logE_array)) * np.exp(logE_array), logE_array, axis = 1)
