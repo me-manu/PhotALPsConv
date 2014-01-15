@@ -1,15 +1,14 @@
 	#################################
 	#	PhotALPsConv		#
 	#################################
-	# python package to compute 	#
-	# photon-ALP oscillations in 	#
-	# ICM, IGMF and GMF		#
-	#				#
-	# Author:			#
-	# -------			#
-	# Manuel Meyer			#
-	# Version: 0.03 01/05/2014	#
-	# manuel.meyer@fysik.su.se	#
+	# python package to compute     #
+	# photon-ALP oscillations in    #
+	# ICM, IGMF and GMF             #
+	#                               #
+	# Author:                       #
+	# -------                       #
+	# Manuel Meyer                  #
+	# manuel.meyer@fysik.su.se      #
 	#################################
 
 1. Introduction
@@ -45,14 +44,16 @@ You will also need the following python packages:
 
 3. Package contents:
 --------------------
-README			-	the file you are currently reading
-__init__.py		-	init the python packages
-conversion.py		-	photon-ALP conversions in the intergalactic medium
-conversion_ICM.py	-	photon-ALP conversions in the intracluster medium
-conversion_GMF.py	-	photon-ALP conversions in Galactic magnetic field
-conversion_Jet.py	-	photon-ALP conversions in AGN Jet
-iminuit_fit.py		-	Power law and log parabola fit of spectrum corrected for ALP effect (Jet/ICM + GMF only so far)
-deltas.py		-	auxilliary functions to calculate the delta (momentum difference) parameters
+- README.md: the file you are currently reading
+- __init__.py: init the python packages
+- conversion.py:photon-ALP conversions in the intergalactic medium
+- conversion_ICM.py: photon-ALP conversions in the intracluster medium
+- conversion_GMF.py: photon-ALP conversions in Galactic magnetic field
+- conversion_Jet.py: photon-ALP conversions in AGN Jet
+- iminuit_fit.py: Power law and log parabola fit of spectrum corrected for ALP effect (Jet/ICM + GMF only so far)
+- deltas.py: auxilliary functions to calculate the delta (momentum difference) parameters
+- example.py: example script
+- EXAMPLE.yaml: example config file to be run with example.py script
 
 4. License
 ----------
@@ -60,14 +61,14 @@ PhotALPsConv is distributed under the modified BSD License.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
-    * Redistributions of source code must retain the above copyright
-	notice, this list of conditions and the following disclaimer.
-    * Redistributions in binary form must reproduce the above copyright
-	notice, this list of conditions and the following disclaimer in the
-	documentation and/or other materials provided with the distribution.
-    * Neither the name of the PhotALPsConv developers  nor the
-	names of its contributors may be used to endorse or promote products
-	derived from this software without specific prior written permission.
+- Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+- Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+- Neither the name of the PhotALPsConv developers  nor the
+names of its contributors may be used to endorse or promote products
+derived from this software without specific prior written permission.
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
