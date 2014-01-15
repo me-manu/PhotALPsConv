@@ -51,7 +51,7 @@ conversion.py		-	photon-ALP conversions in the intergalactic medium
 conversion_ICM.py	-	photon-ALP conversions in the intracluster medium
 conversion_GMF.py	-	photon-ALP conversions in Galactic magnetic field
 conversion_Jet.py	-	photon-ALP conversions in AGN Jet
-iminuit_fit.py		-	Power law and log parabola fit of spectrum corrected for ALP effect (Jet only so far)
+iminuit_fit.py		-	Power law and log parabola fit of spectrum corrected for ALP effect (Jet/ICM + GMF only so far)
 deltas.py		-	auxilliary functions to calculate the delta (momentum difference) parameters
 
 4. License
