@@ -1,5 +1,5 @@
 	#################################
-	#	PhotALPsConv		#
+	#	PhotALPsConv            #
 	#################################
 	# python package to compute     #
 	# photon-ALP oscillations in    #
