@@ -174,6 +174,8 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	-------
 	tuple with conversion probabilities in t,u, and a polarization
 	"""
+	if np.isscalar(EGeV):
+	    EGeV = np.array([EGeV])
 
 	Pt,Pu,Pa	= np.ones(EGeV.shape[0]) * 1e-40,np.ones(EGeV.shape[0]) * 1e-40,np.ones(EGeV.shape[0]) * 1e-40
 	# --- calculate new random angles
