@@ -178,7 +178,7 @@ class Fit_JetICMGMF(CC.Calc_Conv):
 	Scale:		float, power-law pivo energy
 	r_abell:	float, radius of cluster, in kpc
 	B:		float, magnetic field 
-	g:		float, photon-ALP coupling constant, in 10^-11 GeV^-1
+	g:		float, logarithm (naturalis) of photon-ALP coupling constant, in 10^-11 GeV^-1
 	m:		float, ALP mass in neV
 	n:		float, ambient electron density 
 	Lcoh:		float, coherence length in kpc
@@ -198,13 +198,10 @@ class Fit_JetICMGMF(CC.Calc_Conv):
 	#if self.init or not g == self.g or not m == self.m or not B == self.B[0] or not n == self.n[0] \
 	if self.init or not np.exp(g) == self.g or not m == self.m or not B == self.B[0] or not n == self.n[0] \
 	    or not r_abell == self.r_abell or not Lcoh == self.Lcoh:
-	    alppar = {'r_abell': r_abell, 'B': B, 'g': np.exp(g), 'm': m, 'n': n, 'Lcoh': self.Lcoh}
+	    alppar = {'r_abell': r_abell, 'B': B, 'g': np.exp(g), 'm': m, 'n': n, 'Lcoh': Lcoh}
 	    #alppar = {'r_abell': r_abell, 'B': B, 'g': g, 'm': m, 'n': n, 'Lcoh': self.Lcoh}
 	    self.update_params(**alppar)		# get the new params.
 	    self.kwargs.update(alppar)
-	#    if g < 0:
-	#	self.PggAve = np.exp(self.tau.opt_depth_Ebin(self.z,self.bins,self.func, self.pobs))
-	#    else:
 # --- calculate the new deabsorbed data points
 	    self.PggAve = self.calc_pggave_conversion(self.bins *1e3, self.func, self.pobs, Esteps = self.Esteps, new_angles = False)
 	    self.update_params(**alppar)		# B,n,L changed to GMF calc. With this call, they are restored to the ICM values.
@@ -437,6 +434,8 @@ class Fit_JetICMGMF(CC.Calc_Conv):
 	#m.migrad(ncall = kwargs['ncall'])
 	logging.info("PL Jet GMF: Migrad minimization finished")
 
+#Prefactor,Index,Scale,B,r_abell,Lcoh,g,m,n
+
 	m.hesse()
 	logging.info("PL Jet GMF: Hesse matrix calculation finished")
 
@@ -482,10 +481,11 @@ class Fit_JetICMGMF(CC.Calc_Conv):
 
 	fit_stat = m.fval, float(len(self.x) - npar), pvalue(float(len(self.x) - npar), m.fval)
 
+
 	m.values['Prefactor'] *= 10.**self.exp
 	m.errors['Prefactor'] *= 10.**self.exp
 
-	for k in kwargs['limits'].keys():
+	for k in kwargs['limits'].keys() and kwargs['full_output']:
 	    if kwargs['fix'][k]:
 		continue
 	    m.covariance[k,'Prefactor'] *= 10.**self.exp 
