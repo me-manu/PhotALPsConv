@@ -485,14 +485,12 @@ class Fit_JetICMGMF(CC.Calc_Conv):
 	m.values['Prefactor'] *= 10.**self.exp
 	m.errors['Prefactor'] *= 10.**self.exp
 
-	for k in kwargs['limits'].keys() and kwargs['full_output']:
-	    if kwargs['fix'][k]:
-		continue
-	    m.covariance[k,'Prefactor'] *= 10.**self.exp 
-	    m.covariance['Prefactor',k] *= 10.**self.exp 
-
-
 	if kwargs['full_output']:
+	    for k in kwargs['limits'].keys():
+		if kwargs['fix'][k]:
+		    continue
+		m.covariance[k,'Prefactor'] *= 10.**self.exp 
+		m.covariance['Prefactor',k] *= 10.**self.exp 
 	    if kwargs['sample_chi2']:
 		return fit_stat,m.values, m.errors,merr, m.covariance, profile
 	    else:
