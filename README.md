@@ -1,9 +1,12 @@
+PhotALPsConv
+============
+
 	#################################
 	#	PhotALPsConv            #
 	#################################
 	# python package to compute     #
 	# photon-ALP oscillations in    #
-	# ICM, IGMF and GMF             #
+	# the AGN Jet,ICM, IGMF and GMF #
 	#                               #
 	# Author:                       #
 	# -------                       #
@@ -40,6 +43,8 @@ You will also need the following python packages:
 - scipy
 - matplotlib
 - kapteyn
+- yaml
+- iminuit (if you are using the iminuit_fit script, see below)
 
 
 3. Package contents:
