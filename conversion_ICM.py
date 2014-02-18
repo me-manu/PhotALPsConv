@@ -115,9 +115,13 @@ class PhotALPs_ICM(object):
 	    self.n		= self.n * np.ones(int(self.Nd))	# assuming a constant electron density over all domains
 	    self.B		= self.B * np.ones(int(self.Nd))	# assuming a constant B-field over all domains
 	else:
-	    r	= np.linspace(self.Lcoh, self.r_abell + self.Lcoh, int(self.Nd))
-	    self.n = self.n * (np.ones(int(self.Nd)) + r**2./self.r_core**2.)**(-1.5 * self.beta)
-	    self.B = kwargs['B'] * (self.n / kwargs['n'])**self.eta
+	    self.r	= np.linspace(self.Lcoh, self.r_abell + self.Lcoh, int(self.Nd))
+	    if np.isscalar(self.n):
+		n0 = self.n
+	    else:
+		n0 = self.n[0]
+	    self.n =  n0 * (np.ones(int(self.Nd)) + self.r**2./self.r_core**2.)**(-1.5 * self.beta)
+	    self.B = self.B * (self.n / n0 )**self.eta
 
 	self.T1		= np.zeros((3,3,self.Nd),np.complex)	# Transfer matrices
 	self.T2		= np.zeros((3,3,self.Nd),np.complex)
@@ -290,6 +294,8 @@ class PhotALPs_ICM(object):
 	-------
 	Transfer matrix as 3x3 complex numpy array
 	"""
+	if not self.Nd == self.Psin.shape[0]:
+	    raise TypeError("Number of domains (={0:n}) is not equal to number of angles (={1:n})!".format(self.Nd,self.Psin.shape[0]))
 	self.__setEW()
 	self.__setT1n()
 	self.__setT2n()

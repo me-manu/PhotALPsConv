@@ -121,7 +121,7 @@ class Fit_JetICMGMF(CC.Calc_Conv):
 # ----------------------------------------------------------------------------- #
 # --- Jet + GMF scenario ------------------------------------------------------ #
 # ----------------------------------------------------------------------------- #
-    def FillChiSq_JetGMF(self,Prefactor,Index,Scale,Rmax,Bjet,g,m,njet):
+    def __FillChiSq_JetGMF(self,Prefactor,Index,Scale,Rmax,Bjet,g,m,njet):
 	"""
 	Calculate the chi^2 value for ALP conversion in Jet and GMF
 
@@ -167,7 +167,7 @@ class Fit_JetICMGMF(CC.Calc_Conv):
 # --- ICM + GMF scenario ------------------------------------------------------ #
 # ----------------------------------------------------------------------------- #
 
-    def FillChiSq_ICMGMF(self,Prefactor,Index,Scale,B,r_abell,Lcoh,g,m,n):
+    def __FillChiSq_ICMGMF(self,Prefactor,Index,Scale,B,r_abell,Lcoh,g,m,n):
 	"""
 	Calculate the chi^2 value for ALP conversion in ICM and GMF
 
@@ -323,7 +323,7 @@ class Fit_JetICMGMF(CC.Calc_Conv):
 
 	try:
 	    self.scenario.index('Jet')
-	    m = minuit.Minuit(self.FillChiSq_JetGMF, print_level = kwargs['print_level'],
+	    m = minuit.Minuit(self.__FillChiSq_JetGMF, print_level = kwargs['print_level'],
 			    # --- initial values
 			    Prefactor	= kwargs['pinit']["Prefactor"],
 			    Index = kwargs['pinit']["Index"],
@@ -368,7 +368,7 @@ class Fit_JetICMGMF(CC.Calc_Conv):
 	    pass
 	try:
 	    self.scenario.index('ICM')
-	    m = minuit.Minuit(self.FillChiSq_ICMGMF, print_level = kwargs['print_level'],
+	    m = minuit.Minuit(self.__FillChiSq_ICMGMF, print_level = kwargs['print_level'],
 			    # --- initial values
 			    Prefactor	= kwargs['pinit']["Prefactor"],
 			    Index = kwargs['pinit']["Index"],

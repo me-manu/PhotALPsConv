@@ -25,16 +25,16 @@ class PhotALPs_Jet(object):
     ----------
     B:		field strength in jet at r = R_BLR in G
     R_BLR:	Radius of broad line region in pc
-    r:		distance where mixing is evaluated in pc
-    s:		Exponent for electron density (between 1 and 3)
-    p:		Exponent for magnetic field (1=toroidal, 2=poloidal)
+    rjet:		distance where mixing is evaluated in pc
+    sjet:		Exponent for electron density (between 1 and 3)
+    pjet:		Exponent for magnetic field (1=toroidal, 2=poloidal)
     g:		Photon ALP coupling in 10^{-11} GeV^-1
     m:		ALP mass in neV
     E:		energy in GeV
-    n:		electron density in the jet at r = R_BLR, in cm^-3
-    T1:		Transfer matrix 1 (3x3xNd)-matrix
-    T2:		Transfer matrix 2 (3x3xNd)-matrix		
-    T3:		Transfer matrix 3 (3x3xNd)-matrix
+    njet:		electron density in the jet at r = R_BLR, in cm^-3
+    T1jet:		Transfer matrix 1 (3x3xNd)-matrix
+    T2jet:		Transfer matrix 2 (3x3xNd)-matrix		
+    T3jet:		Transfer matrix 3 (3x3xNd)-matrix
     Un:		Total transfer matrix in all domains (3x3xNd)-matrix
     Dperp:	Mixing matrix parameter Delta_perpedicular 
     Dpar:	Mixing matrix parameter Delta_{||} 
@@ -120,12 +120,12 @@ class PhotALPs_Jet(object):
 
 	self.Nd_jet	= ceil( -1. * self.pjet * np.log(self.Rmax/self.R_BLR) / np.log(self.sens) )	
 	self.Lcoh_jet	= self.R_BLR *  self.sens ** ( - np.linspace(1.,self.Nd_jet,self.Nd_jet) / self.pjet ) * (1. - self.sens) # domain length
-	self.r		= self.R_BLR *  self.sens ** ( - np.linspace(0.,self.Nd_jet,self.Nd_jet) / self.pjet ) 		# distance from BLR
+	self.r_jet		= self.R_BLR *  self.sens ** ( - np.linspace(0.,self.Nd_jet,self.Nd_jet) / self.pjet ) 		# distance from BLR
 
 
 
-	self.Br = self.Bf(self.r)
-	self.nr = self.nf(self.r)
+	self.Br_jet = self.Bf(self.r_jet)
+	self.nr_jet = self.nf(self.r_jet)
 
 	self.T1jet	= np.zeros((3,3,self.Nd_jet),np.complex)	# Transfer matrices
 	self.T2jet	= np.zeros((3,3,self.Nd_jet),np.complex)
@@ -148,9 +148,9 @@ class PhotALPs_Jet(object):
 	Nothing
 	"""
 
-	self.Dperp	= 1e-3 * (Delta_pl_kpc(self.nr * 1e3,self.E) + 2.*Delta_QED_kpc(self.Br * 1e6,self.E))
-	self.Dpar	= 1e-3 * (Delta_pl_kpc(self.nr * 1e3,self.E) + 3.5*Delta_QED_kpc(self.Br * 1e6,self.E))	
-	self.Dag	= 1e-3 * (Delta_ag_kpc(self.g,self.Br * 1e6))
+	self.Dperp	= 1e-3 * (Delta_pl_kpc(self.nr_jet * 1e3,self.E) + 2.*Delta_QED_kpc(self.Br_jet * 1e6,self.E))
+	self.Dpar	= 1e-3 * (Delta_pl_kpc(self.nr_jet * 1e3,self.E) + 3.5*Delta_QED_kpc(self.Br_jet * 1e6,self.E))	
+	self.Dag	= 1e-3 * (Delta_ag_kpc(self.g,self.Br_jet * 1e6))
 	self.Da		= 1e-3 * (Delta_a_kpc(self.m,self.E) * np.ones(int(self.Nd_jet )))
 	self.alph	= 0.5 * np.arctan(2. * self.Dag / (self.Dpar - self.Da)) 
 	self.Dosc	= np.sqrt((self.Dpar - self.Da)**2. + 4.*self.Dag**2.)

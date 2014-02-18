@@ -119,6 +119,12 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 
 	# --- init params
 	try:
+	    self.scenario.index('GMF')
+	    self.update_params_GMF(**kwargs)
+	except ValueError:
+	    pass
+
+	try:
 	    self.scenario.index('IGM')
 	    self.update_params_IGM(**kwargs)
 	except ValueError:
@@ -133,12 +139,6 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	    self.update_params_Jet(**kwargs)
 	except ValueError:
 	    pass
-	try:
-	    self.scenario.index('GMF')
-	    self.update_params_GMF(**kwargs)
-	except ValueError:
-	    pass
-
 	# --- init initial and final polarization states ------ #
 	if new_init:
 	    self.pol	= np.zeros((3,3))	# initial polarization state

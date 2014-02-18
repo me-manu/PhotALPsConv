@@ -15,7 +15,7 @@ dec: -30.22558
 # nsim		- number of random realizations
 scenario: [Jet,ICM,IGM,GMF]
 g: 5.
-m: 1.
+m: 15.
 nsim: 100
 # ----- initial polarization ----- #
 pol_t: 0.5
