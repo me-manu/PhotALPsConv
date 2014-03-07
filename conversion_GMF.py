@@ -72,6 +72,8 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	    coherence length or step size for integration
 	NE2001: bool (optional, default = False)
 	    if True, NE2001 code is used to compute electron density instead of constant value
+	NE2001file: string (optional, default = None)
+	    file with electron density along line of sight. If None, it will be created.
 	model: string (default = jansson)
 	    GMF model that is used. Currently the model by Jansson & Farrar (2012) and Pshirkov et al. (2011) are implemented. 
 	    Usage: model=[jansson, phsirkov]
@@ -97,6 +99,7 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	kwargs.setdefault('d',-8.5)
 	kwargs.setdefault('Lcoh',0.01)
 	kwargs.setdefault('NE2001', False)
+	kwargs.setdefault('NE2001file',None)
 	kwargs.setdefault('model','jansson')
 	kwargs.setdefault('model_sym','ASS')
 
@@ -268,19 +271,15 @@ class PhotALPs_GMF(PhotALPs_ICM):
 
 	# --- Calculate density in all domains: ----------------------------#
 	if self.NE2001:
-	    filename = os.path.join(os.environ['NE2001_PATH'],'data/smax{0:.1f}_l{1:.2f}_b{2:.2f}_Lcoh{3}.pickle'.format(self.smax,self.l,self.b,self.Lcoh))
-#	    if not (os.environ['HOST'] == 'astro-wgs02' or os.environ['HOST'] == 'uh2ulastro15'):
-#		if not len(glob.glob('./' + filename.split('/')[-1])):
-#		    subprocess.call(['cp',filename,'./'])
-#		    logging.info('copied NE2001 file {0} to tmdir'.format(filename))
-#		filename = './' + filename.split('/')[-1]
+	    if self.NE2001file == None:
+		self.NE2001file = os.path.join(os.environ['NE2001_PATH'],'data/smax{0:.1f}_l{1:.2f}_b{2:.2f}_Lcoh{3}.pickle'.format(self.smax,self.l,self.b,self.Lcoh))
 	    try:
-		f = open(filename)		# check if n has already been calculated for this l,b, smax and Lcoh
+		f = open(self.NE2001file)	# check if n has already been calculated for this l,b, smax and Lcoh
 						# returns n in cm^-3
 		self.n = pickle.load(f) *1e3	# convert into 1e-3 cm^-3
 		f.close()
 	    except IOError:			# if not already calculated, do it now and save to file with function dl
-		self.n = dl(sa,self.l,self.b,filename,d=self.d) * 1e3		# convert into 1e-3 cm^-3
+		self.n = dl(sa,self.l,self.b,self.NE2001file,d=self.d) * 1e3		# convert into 1e-3 cm^-3
 	else:
 	    self.n = self.nGMF * np.ones(self.Nd)
 	# ----------------------------------------------------------------- #
