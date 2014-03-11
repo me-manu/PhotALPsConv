@@ -236,25 +236,29 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 		pass
 	return Pt,Pu,Pa
 
-    def calc_pggave_conversion(self, bins, func, pfunc, new_angles = True, Esteps = 50):
+    def calc_pggave_conversion(self, bins, func=None, pfunc=None, new_angles = True, Esteps = 50):
 	"""
 	Calculate average photon transfer matrix from an interpolation
 
 	Parameters
 	----------
 	bins:	n+1 -dim array with bin boundaries in GeV
-	func:	function used for averaging, has to be called with func(pfunc,E)
-	pfunc:	parameters for function
 
 	kwargs
 	------
 	Esteps: int, number of energies to interpolate photon survival probability, default: 50
 	new_angles:	bool, if True, calculate new random angles. Default: True
+	func:	function used for averaging, has to be called with func(pfunc,E)
+	pfunc:	parameters for function
 
 	Returns
 	-------
 	n+1-dim array with average photon survival probability for each bin
 	"""
+	if not func == None:
+	    self.func = func
+	if not pfunc == None:
+	    self.pobs = pfunc
 
 	logEGeV = np.linspace(np.log(bins[0] * 0.9), np.log(bins[-1] * 1.1), Esteps)
 
@@ -267,12 +271,12 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	# --- calculate average correction for each bin
 	for i,E in enumerate(bins):
 	    if not i:
-		logE_array	= np.linspace(np.log(E),np.log(bins[i+1]),self.Esteps / 3)
+		logE_array	= np.linspace(np.log(E),np.log(bins[i+1]),Esteps / 3)
 		pgg_array	= np.exp(self.pgg(logE_array))
 	    elif i == len(bins) - 1:
 		break
 	    else:
-		logE		= np.linspace(np.log(E),np.log(bins[i+1]),self.Esteps / 3)
+		logE		= np.linspace(np.log(E),np.log(bins[i+1]),Esteps / 3)
 		logE_array	= np.vstack((logE_array,logE))
 		pgg_array	= np.vstack((pgg_array,np.exp(self.pgg(logE))))
 	# average transfer matrix over the bins
