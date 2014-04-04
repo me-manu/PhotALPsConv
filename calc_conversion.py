@@ -28,7 +28,7 @@ import PhotALPsConv.conversion_GMF as GMF
 # --- EBL imports
 import eblstud.ebl.tau_from_model as TAU
 from eblstud.misc.bin_energies import calc_bin_bounds
-from eblstud.tools.iminuit_fit import pl,lp
+from eblstud.tools.iminuit_fit import *
 # ------------------------ #
 
 class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
@@ -236,7 +236,7 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 		pass
 	return Pt,Pu,Pa
 
-    def calc_pggave_conversion(self, bins, func=None, pfunc=None, new_angles = True, Esteps = 50):
+    def calc_pggave_conversion(self, bins, func=None, pfunc=None, new_angles = True, logPgg = 'None', Esteps = 50):
 	"""
 	Calculate average photon transfer matrix from an interpolation
 
@@ -250,6 +250,7 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	new_angles:	bool, if True, calculate new random angles. Default: True
 	func:	function used for averaging, has to be called with func(pfunc,E)
 	pfunc:	parameters for function
+	logPgg: Function for photon survival log(probability) versus log(energy). If not given it will be calculated.
 
 	Returns
 	-------
@@ -263,10 +264,13 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	logEGeV = np.linspace(np.log(bins[0] * 0.9), np.log(bins[-1] * 1.1), Esteps)
 
 	# --- calculate the photon survival probability
-	Pt,Pu,Pa = self.calc_conversion(np.exp(logEGeV), new_angles = new_angles)
+	if logPgg == 'None':
+	    Pt,Pu,Pa = self.calc_conversion(np.exp(logEGeV), new_angles = new_angles)
 
 	# --- calculate the average with interpolation
-	self.pgg	= interp1d(logEGeV,np.log(Pt + Pu))
+	    self.pgg	= interp1d(logEGeV,np.log(Pt + Pu))
+	else:
+	    self.pgg	= logPgg
 
 	# --- calculate average correction for each bin
 	for i,E in enumerate(bins):
@@ -282,3 +286,197 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	# average transfer matrix over the bins
 	return	simps(self.func(self.pobs,np.exp(logE_array)) * pgg_array * np.exp(logE_array), logE_array, axis = 1) / \
 		simps(self.func(self.pobs,np.exp(logE_array)) * np.exp(logE_array), logE_array, axis = 1)
+
+# --- Convenience function to plot a spectrum together with it's absorption corrected versions ----- #
+    def plot_spectrum(self, x,y,s, logPgg = 'None', xerr = 'None'):
+	"""
+	Plot an observed gamma-ray spectrum together with it's abosrption corrected (w/ and w/o ALPs) versions.
+
+	Arguments
+	---------
+	x:  n-dim array, Energy of spectrum
+	y:  n-dim array, observed Flux of spectrum in dN / dE
+	s:  n-dim array, dF
+
+	kwargs
+	------
+	logPgg: Function for photon survival log(probability) versus log(energy). If not given it will be calculated.
+	xerr: (n+1)-dim array, bin boundaries. If not given it will be caclulated
+	"""
+
+	import matplotlib.pyplot as plt
+
+	assert x.shape[0] == y.shape[0]
+	assert x.shape[0] == s.shape[0]
+
+	m = y > 0.
+	x = x[m]
+	y = y[m]
+	s = s[m]
+
+	stat,p,err,merr,cov,func,dfunc = {},{},{},{},{},{},{}
+	f,df = {'obs': y}, {'obs': s}
+
+	# calculate the bin bounds
+	if xerr == 'None':
+	    xerr = calc_bin_bounds(x)
+
+	xplot = 10.**np.linspace(np.log10(xerr[0]),np.log10(xerr[-1]),200)
+
+	# pl fit to observed spectrum
+	stat['obs'],p['obs'], err['obs'],merr['obs'], cov['obs'] = MinuitFitPL(x,y,s , full_output = True)
+	func['obs']	= pl
+	dfunc['obs']	= butterfly_pl
+ 
+	# calculate the average absorption correction
+	pggAve	= self.calc_pggave_conversion(xerr * 1e3, func=func['obs'], pfunc=p['obs'], logPgg = logPgg)
+	tauAve	= self.tau.opt_depth_Ebin(self.z,xerr,func['obs'],p['obs'])
+	atten	= np.exp(-tauAve)
+	f['alp']	= y / pggAve
+	df['alp']	= s / pggAve
+	f['tau']	= y / atten
+	df['tau']	= s / atten
+
+	# pl fit to deabs spectra
+	stat['alp'],p['alp'], err['alp'],merr['alp'], cov['alp'] = MinuitFitPL(x,y / pggAve,s / pggAve , full_output = True)
+	func['alp']	= pl
+	dfunc['alp']	= butterfly_pl
+
+	stat['tau'],p['tau'], err['tau'],merr['tau'], cov['tau'] = MinuitFitPL(x,y / atten ,s / atten, full_output = True)
+	func['tau']	= pl
+	dfunc['tau']	= butterfly_pl
+
+	# plot everything
+	fig	= plt.figure()
+	ax	= plt.subplot(111)
+	ax.set_xscale('log')
+	ax.set_yscale('log')
+	cp	= plt.cm.Dark2
+	marker = {'obs': 's', 'tau': 'v', 'alp':'o'}
+	label  = {'obs': 'observed', 'tau': 'deabs. w/o ALPs', 'alp':'deabs. w/ ALPs'}
+	for i,k in enumerate(f.keys()):
+	    plt.errorbar(x,f[k], yerr = df[k], xerr = [x - xerr[:-1], xerr[1:] - x], 
+		ls	= 'None',
+		marker	= marker[k],
+		color	= cp(i / (len(f.keys()) + 1.)),
+		label	= label[k],
+		)
+	    plt.plot(xplot, func[k](p[k],xplot), 
+		ls	= '-',
+		lw	= 1.,
+		color	= cp(i / (len(f.keys()) + 1.))
+		)
+	    plt.fill_between(xplot, func[k](p[k],xplot)*(1. - dfunc[k](p[k],xplot,err[k],cov[k])), 
+		y2	= func[k](p[k],xplot)*(1. + dfunc[k](p[k],xplot,err[k],cov[k])),
+		lw	= 1.,
+		facecolor = 'None',
+		edgecolor = cp(i / (len(f.keys()) + 1.))
+		)
+	plt.legend(loc = 0)
+	plt.xlabel('Energy')
+	plt.ylabel('$\mathrm{d}N / \mathrm{d} E$')
+	v = plt.axis()
+	plt.axis([xerr[0] * 0.8, xerr[-1] / 0.8, v[2], v[3]])
+
+	ax2 = ax.twinx()
+	ax2.set_xscale('log')
+	ax2.set_yscale('log')
+
+	plt.plot(xplot, np.exp(-self.tau.opt_depth_array(self.z,xplot))[0],
+	    lw		= 2.,
+	    color	= '0.'
+	    )
+	plt.plot(xplot, np.exp(logPgg(np.log(xplot * 1e3))),
+	    lw		= 2.,
+	    color	= 'red'
+	    )
+
+	v = plt.axis()
+	plt.axis([xerr[0] * 0.8, xerr[-1] / 0.8, v[2], v[3]])
+
+	plt.show()
+	return
+
+    def plot_counts(self, x,S,B, logPgg, xerr = 'None',alpha = 0.2):
+	"""
+	Plot the expected counts spectra of a gamma-ray observation.
+
+	Arguments
+	---------
+	S:  dictionary with n-dim arrays, containing the expected signal counts
+	B:  dictionary with n-dim arrays, containing the expected bkg counts
+	logPgg: Function for photon survival log(probability) versus log(energy)
+
+	kwargs
+	------
+	xerr: (n+1)-dim array, bin boundaries. If not given it will be caclulated
+	alpha: float, ratio of exposure between ON and OFF
+	"""
+
+	import matplotlib.pyplot as plt
+
+	# calculate the bin bounds
+	if xerr == 'None':
+	    xerr = calc_bin_bounds(x)
+
+	xplot = 10.**np.linspace(np.log10(xerr[0]),np.log10(xerr[-1]),200)
+
+	# plot everything
+	fig	= plt.figure(1)
+	ax	= plt.subplot(111)
+	ax.set_xscale('log')
+	ax.set_yscale('log')
+	cp	= plt.cm.Dark2
+	marker = ['s','o']
+	for i,k in enumerate(S.keys()):
+	    plt.errorbar(x,S[k], xerr = [x - xerr[:-1], xerr[1:] - x], 
+		ls	= 'None',
+		marker	= 'o',
+		lw	= 1.,
+		color	= cp(i / (len(S.keys()) + 1.)),
+		mec	= cp(i / (len(S.keys()) + 1.)),
+		mfc	= 'None',
+		label	= 'exp. signal {0:s}'.format(k),
+		)
+	    plt.errorbar(x,B[k], xerr = [x - xerr[:-1], xerr[1:] - x], 
+		ls	= 'None',
+		lw	= 1.,
+		marker	= 's',
+		color	= cp(i / (len(S.keys()) + 1.)),
+		mec	= cp(i / (len(S.keys()) + 1.)),
+		mfc	= 'None',
+		label	= 'exp. bkg {0:s}'.format(k),
+		)
+	plt.legend(loc = 0)
+	plt.xlabel('Energy')
+	plt.ylabel('$\mathrm{d}N / \mathrm{d} E$')
+	v = plt.axis()
+	plt.axis([xerr[0] * 0.8, xerr[-1] / 0.8, v[2], v[3]])
+
+	ax2 = ax.twinx()
+	ax2.set_xscale('log')
+	ax2.set_yscale('log')
+
+	plt.plot(xplot, np.exp(-self.tau.opt_depth_array(self.z,xplot))[0],
+	    lw		= 2.,
+	    color	= '0.'
+	    )
+	plt.plot(xplot, np.exp(logPgg(np.log(xplot * 1e3))),
+	    lw		= 2.,
+	    color	= 'red'
+	    )
+
+	v = plt.axis()
+	plt.axis([xerr[0] * 0.8, xerr[-1] / 0.8, v[2], v[3]])
+
+# histogramm with NON values
+	from scipy.stats import poisson
+	fig	= plt.figure(2)
+	for i,k in enumerate(S.keys()):
+	    NonExp	= (S[k] + B[k])[0] * np.ones(5000)
+	    NON		= poisson.rvs(NonExp)
+	    plt.hist(NON, label = k)
+	plt.legend(loc = 0)
+
+	plt.show()
+	return
