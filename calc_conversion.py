@@ -20,6 +20,7 @@ from eblstud.tools.lsq_fit import *
 from scipy.integrate import simps
 from scipy.interpolate import interp1d
 import logging
+import copy
 # --- ALP imports 
 import PhotALPsConv.conversion_Jet as JET
 import PhotALPsConv.conversion as IGM 
@@ -100,7 +101,8 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	    pass
 	try:
 	    self.scenario.index('ICM')
-	    self.new_random_psi()
+	    if not self.B_gauss:
+		self.new_random_psi()
 	except ValueError:
 	    pass
 
@@ -188,8 +190,10 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	try:
 	    self.scenario.index('ICM')
 	    if new_angles:
-		self.new_random_psi()
-	    Psin, Nd = self.Psin.copy(),self.Nd		# save values of Psi, altered by GMF calculation
+		if self.B_gauss:
+		    self.new_B_n()
+		else:
+		    self.new_random_psi()
 	except ValueError:
 	    pass
 
@@ -205,9 +209,11 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 		pass
 	    try:
 		self.scenario.index('ICM')
-		self.update_params(**(self.kwargs))
 		T	= self.SetDomainN()
 		pol	= np.dot(T,np.dot(pol,T.transpose().conjugate()))	# new polarization matrix
+		if not i:
+		# store values that are modified by GMF conversion calculation
+		    B,Lcoh,Nd,Psin,n = copy.copy(self.B),copy.copy(self.Lcoh),copy.copy(self.Nd),copy.copy(self.Psin),copy.copy(self.n)
 	    except ValueError:
 		pass
 	    try:
@@ -226,10 +232,17 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	    pol		= np.diag([Pt[i] * atten,Pu[i] * atten, Pa[i]])
 	    try:
 		self.scenario.index('GMF')
+
 		Pt[i],Pu[i],Pa[i]= np.real(self.Pag_TM(self.E,self.ra,self.dec,pol))	# mixing in GMF
+
 		try:
+		    # if ICM also considered, restore these values
 		    self.scenario.index('ICM')
-		    self.Psin, self.Nd	= Psin.copy(),Nd		# restore values of Psin 
+		    self.B,self.Lcoh,self.Nd,self.Psin,self.n = copy.copy(B),copy.copy(Lcoh),copy.copy(Nd),copy.copy(Psin),copy.copy(n)
+		    self.T1		= np.zeros((3,3,self.Nd),np.complex)	# Transfer matrices
+		    self.T2		= np.zeros((3,3,self.Nd),np.complex)
+		    self.T3		= np.zeros((3,3,self.Nd),np.complex)
+		    self.Un		= np.zeros((3,3,self.Nd),np.complex)
 		except ValueError:
 		    pass
 	    except ValueError:
@@ -288,13 +301,13 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 		simps(self.func(self.pobs,np.exp(logE_array)) * np.exp(logE_array), logE_array, axis = 1)
 
 # --- Convenience function to plot a spectrum together with it's absorption corrected versions ----- #
-    def plot_spectrum(self, x,y,s, logPgg = 'None', xerr = 'None'):
+    def plot_spectrum(self, x,y,s, logPgg = 'None', xerr = 'None',filename = 'spectrum.pdf',Emin = 0., Emax = 0.):
 	"""
 	Plot an observed gamma-ray spectrum together with it's abosrption corrected (w/ and w/o ALPs) versions.
 
 	Arguments
 	---------
-	x:  n-dim array, Energy of spectrum
+	x:  n-dim array, Energy of spectrum in TeV
 	y:  n-dim array, observed Flux of spectrum in dN / dE
 	s:  n-dim array, dF
 
@@ -302,6 +315,8 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	------
 	logPgg: Function for photon survival log(probability) versus log(energy). If not given it will be calculated.
 	xerr: (n+1)-dim array, bin boundaries. If not given it will be caclulated
+	Emin: minimum plot energy in TeV
+	Emax: maximum plot energy  in TeV
 	"""
 
 	import matplotlib.pyplot as plt
@@ -321,7 +336,11 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	if xerr == 'None':
 	    xerr = calc_bin_bounds(x)
 
-	xplot = 10.**np.linspace(np.log10(xerr[0]),np.log10(xerr[-1]),200)
+	if not Emin:
+	    Emin  = xerr[0]
+	if not Emax:
+	    Emin  = xerr[-1]
+	xplot = 10.**np.linspace(np.log10(Emin),np.log10(Emax),200)
 
 	# pl fit to observed spectrum
 	stat['obs'],p['obs'], err['obs'],merr['obs'], cov['obs'] = MinuitFitPL(x,y,s , full_output = True)
@@ -345,6 +364,11 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	stat['tau'],p['tau'], err['tau'],merr['tau'], cov['tau'] = MinuitFitPL(x,y / atten ,s / atten, full_output = True)
 	func['tau']	= pl
 	dfunc['tau']	= butterfly_pl
+
+	for k in stat.keys():
+	    print '{0:s}:'.format(k)
+	    for l in p[k].keys():
+		print "{0:s} = {1:.2e} +/- {2:.2e}".format(l,p[k][l],err[k][l])
 
 	# plot everything
 	fig	= plt.figure()
@@ -376,28 +400,30 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	plt.xlabel('Energy')
 	plt.ylabel('$\mathrm{d}N / \mathrm{d} E$')
 	v = plt.axis()
-	plt.axis([xerr[0] * 0.8, xerr[-1] / 0.8, v[2], v[3]])
+	plt.axis([Emin * 0.8, Emax / 0.8, v[2], v[3]])
 
 	ax2 = ax.twinx()
 	ax2.set_xscale('log')
 	ax2.set_yscale('log')
 
-	plt.plot(xplot, np.exp(-self.tau.opt_depth_array(self.z,xplot))[0],
-	    lw		= 2.,
-	    color	= '0.'
-	    )
 	plt.plot(xplot, np.exp(logPgg(np.log(xplot * 1e3))),
 	    lw		= 2.,
 	    color	= 'red'
 	    )
+	plt.plot(xplot, np.exp(-self.tau.opt_depth_array(self.z,xplot))[0],
+	    lw		= 2.,
+	    color	= '0.',
+	    ls = '--'
+	    )
 
 	v = plt.axis()
-	plt.axis([xerr[0] * 0.8, xerr[-1] / 0.8, v[2], v[3]])
+	plt.axis([Emin * 0.8, Emax / 0.8, v[2], v[3]])
 
+	plt.savefig(filename, format = filename.split('.')[-1])
 	plt.show()
 	return
 
-    def plot_counts(self, x,S,B, logPgg, xerr = 'None',alpha = 0.2):
+    def plot_counts(self, x,S,B, logPgg, xerr = 'None',alpha = 0.2,filename = 'counts.pdf'):
 	"""
 	Plot the expected counts spectra of a gamma-ray observation.
 
@@ -468,6 +494,7 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 
 	v = plt.axis()
 	plt.axis([xerr[0] * 0.8, xerr[-1] / 0.8, v[2], v[3]])
+	plt.savefig(filename + '.spec', format = filename.split('.')[-1])
 
 # histogramm with NON values
 	from scipy.stats import poisson
@@ -477,6 +504,7 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	    NON		= poisson.rvs(NonExp)
 	    plt.hist(NON, label = k)
 	plt.legend(loc = 0)
+	plt.savefig(filename + '.hist', format = filename.split('.')[-1])
 
 	plt.show()
 	return

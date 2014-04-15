@@ -16,6 +16,7 @@ from eblstud.misc.constants import *
 import logging
 import warnings
 from numpy.random import rand, seed
+from PhotALPsConv.Bturb import Bgaussian as Bgaus
 
 # --- Conversion without absorption, designed to match values in Clusters -------------------------------------------#
 from deltas import *
@@ -66,8 +67,19 @@ class PhotALPs_ICM(object):
 	g:		Photon ALP coupling in 10^{-11} GeV^-1, default: 1.
 	m:		ALP mass in neV, default: 1.
 	n:		thermal electron density in the cluster, in 10^{-3} cm^-3, default: 1.
+
 	Bn_const:	boolean, if True n and B are constant all over the cluster
 			if False than B and n are modeled, see notes
+	Bgauss:		boolean, if True, B field calculated from gaussian turbulence spectrum,
+			if False then domain-like structure is assumed.
+
+	kH:		float, upper wave number cutoff, should be at at least > 1. / osc. wavelength (default = 1 / (1 kpc))
+	kL:		float, lower wave number cutoff, should be of same size as the system (default = 1 / (r_abell kpc))
+	q:  		float, power-law turbulence spectrum (default: q = 11/3 is Kolmogorov type spectrum)
+	dkType:		string, either linear, log, or random. Determine the spacing of the dk intervals 	
+	dkSteps: 	int, number of dkSteps. For log spacing, number of steps per decade / number of decades ~ 10
+			should be chosen.
+
 	r_core:		Core radius for n and B modeling in kpc, default: 200 kpc
 	beta:		power of n dependence, default: 2/3
 	eta:		power with what B follows n, see Notes. Typical values: 0.5 <= eta <= 1. default: 1.
@@ -93,9 +105,17 @@ class PhotALPs_ICM(object):
 	kwargs.setdefault('B',1.)
 	kwargs.setdefault('n',1.)
 	kwargs.setdefault('Lcoh',1.)
-	kwargs.setdefault('r_abell',1.)
+	kwargs.setdefault('r_abell',100.)
 	kwargs.setdefault('r_core',200.)
 	kwargs.setdefault('E_GeV',1.)
+
+	kwargs.setdefault('B_gauss',False)
+	kwargs.setdefault('kL',1. / kwargs['r_abell'])
+	kwargs.setdefault('kH',1. / 1.)
+	kwargs.setdefault('q',-11. / 3.)
+	kwargs.setdefault('dkType','log')
+	kwargs.setdefault('dkSteps',0)
+
 	kwargs.setdefault('Bn_const',True)
 	kwargs.setdefault('beta',2. / 3.)
 	kwargs.setdefault('eta',1.)
@@ -104,30 +124,56 @@ class PhotALPs_ICM(object):
 
 	super(PhotALPs_ICM,self).__init__()
 
-    def update_params(self, **kwargs):
-	"""Update all parameters with new values and initialize all matrices"""
+    def update_params(self, new_B_n = True, **kwargs):
+	"""Update all parameters with new values and initialize all matrices
+	
+	kwargs
+	------
+	new_B_n:	boolean, if True, recalculate B field and electron density
+	
+	"""
 
 	self.__dict__.update(kwargs)
 
-	self.Nd		= int(self.r_abell / self.Lcoh)	# number of domains, no expansion assumed
+	self.Nd	= int(self.r_abell / self.Lcoh)	# number of domains, no expansion assumed
+	self.r	= np.linspace(self.Lcoh, self.r_abell + self.Lcoh, int(self.Nd))
 
-	if self.Bn_const:
-	    self.n		= self.n * np.ones(int(self.Nd))	# assuming a constant electron density over all domains
-	    self.B		= self.B * np.ones(int(self.Nd))	# assuming a constant B-field over all domains
-	else:
-	    self.r	= np.linspace(self.Lcoh, self.r_abell + self.Lcoh, int(self.Nd))
-	    if np.isscalar(self.n):
-		n0 = self.n
-	    else:
-		n0 = self.n[0]
-	    self.n =  n0 * (np.ones(int(self.Nd)) + self.r**2./self.r_core**2.)**(-1.5 * self.beta)
-	    self.B = self.B * (self.n / n0 )**self.eta
+	if self.B_gauss:
+	    self.bfield	= Bgaus(**kwargs)		# init gaussian turbulent field
+
+	if new_B_n:
+	    self.new_B_n()
 
 	self.T1		= np.zeros((3,3,self.Nd),np.complex)	# Transfer matrices
 	self.T2		= np.zeros((3,3,self.Nd),np.complex)
 	self.T3		= np.zeros((3,3,self.Nd),np.complex)
 	self.Un		= np.zeros((3,3,self.Nd),np.complex)
 
+	return
+
+    def new_B_n(self):
+	"""
+	Recalculate Bfield and density, if Kolmogorov turbulence is set to true, new random values for B and Psi are calculated.
+	"""
+
+	if self.B_gauss:
+	    Bt		= self.bfield.Bgaus(self.r)	# calculate first transverse component
+	    self.bfield.new_random_numbers()		# new random numbers
+	    Bu		= self.bfield.Bgaus(self.r)	# calculate second transverse component
+	    self.B	= np.sqrt(Bt ** 2. + Bu ** 2.)	# calculate total transverse component 
+	    self.Psin	= np.arccos(Bu / self.B)	# and angle to x2 (t) axis
+
+	if self.Bn_const:
+	    self.n		= self.n * np.ones(int(self.Nd))	# assuming a constant electron density over all domains
+	    if not self.B_gauss:
+		self.B		= self.B * np.ones(int(self.Nd))	# assuming a constant B-field over all domains
+	else:
+	    if np.isscalar(self.n):
+		n0 = self.n
+	    else:
+		n0 = self.n[0]
+	    self.n =  n0 * (np.ones(int(self.Nd)) + self.r**2./self.r_core**2.)**(-1.5 * self.beta)
+	    self.B = self.B * (self.n / n0 )**self.eta
 	return
 
     def new_random_psi(self):
