@@ -161,7 +161,7 @@ class PhotALPs_ICM(object):
 	    self.bfield.new_random_numbers()		# new random numbers
 	    Bu		= self.bfield.Bgaus(self.r)	# calculate second transverse component
 	    self.B	= np.sqrt(Bt ** 2. + Bu ** 2.)	# calculate total transverse component 
-	    self.Psin	= np.arccos(Bu / self.B)	# and angle to x2 (t) axis
+	    self.Psin	= np.arctan2(Bt , Bu)		# and angle to x2 (t) axis -- use atan2 to get the quadrants right
 
 	if self.Bn_const:
 	    self.n		= self.n * np.ones(int(self.Nd))	# assuming a constant electron density over all domains

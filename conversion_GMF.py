@@ -258,10 +258,9 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	m		= self.B > 0.
 
 
-	# Psi = arctan( B_transversal / B_along prop. direction)
+	self.Psin[m]	= np.arctan2(Bt[m],Bu[m])	# arctan2 selects the right quadrant
 	# Debug:
-	#self.Psin[m]	= np.arctan2(self.B[m],Bs[m])	# arctan2 selects the right quadrant
-	self.Psin[m]	= np.ones((self.Psin[m]).shape[0]) * np.pi / 4.
+	#self.Psin[m]	= np.ones((self.Psin[m]).shape[0]) * np.pi / 4.
 
 	self.T1		= np.zeros((3,3,self.Nd),np.complex)
 	self.T2		= np.zeros((3,3,self.Nd),np.complex)
