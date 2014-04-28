@@ -111,7 +111,7 @@ class PhotALPs_ICM(object):
 
 	kwargs.setdefault('B_gauss',False)
 	kwargs.setdefault('kL',1. / kwargs['r_abell'])
-	kwargs.setdefault('kH',1. / 1.)
+	kwargs.setdefault('kH',200.)
 	kwargs.setdefault('q',-11. / 3.)
 	kwargs.setdefault('dkType','log')
 	kwargs.setdefault('dkSteps',0)
@@ -124,7 +124,7 @@ class PhotALPs_ICM(object):
 
 	super(PhotALPs_ICM,self).__init__()
 
-    def update_params(self, new_B_n = True, **kwargs):
+    def update_params(self, new_Bn = True, **kwargs):
 	"""Update all parameters with new values and initialize all matrices
 	
 	kwargs
@@ -141,7 +141,7 @@ class PhotALPs_ICM(object):
 	if self.B_gauss:
 	    self.bfield	= Bgaus(**kwargs)		# init gaussian turbulent field
 
-	if new_B_n:
+	if new_Bn:
 	    self.new_B_n()
 
 	self.T1		= np.zeros((3,3,self.Nd),np.complex)	# Transfer matrices
