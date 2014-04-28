@@ -157,7 +157,6 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	    self.pola[2,2]	= 1.
 
 	self.kwargs = kwargs	# save kwargs
-
 	return
 
     def calc_conversion(self,EGeV,new_angles = True):

@@ -73,7 +73,7 @@ class PhotALPs_ICM(object):
 	Bgauss:		boolean, if True, B field calculated from gaussian turbulence spectrum,
 			if False then domain-like structure is assumed.
 
-	kH:		float, upper wave number cutoff, should be at at least > 1. / osc. wavelength (default = 1 / (1 kpc))
+	kH:		float, upper wave number cutoff, should be at at least > 1. / osc. wavelength (default = 200 / (1 kpc))
 	kL:		float, lower wave number cutoff, should be of same size as the system (default = 1 / (r_abell kpc))
 	q:  		float, power-law turbulence spectrum (default: q = 11/3 is Kolmogorov type spectrum)
 	dkType:		string, either linear, log, or random. Determine the spacing of the dk intervals 	
@@ -110,7 +110,7 @@ class PhotALPs_ICM(object):
 	kwargs.setdefault('E_GeV',1.)
 
 	kwargs.setdefault('B_gauss',False)
-	kwargs.setdefault('kL',1. / kwargs['r_abell'])
+	kwargs.setdefault('kL',0.)
 	kwargs.setdefault('kH',200.)
 	kwargs.setdefault('q',-11. / 3.)
 	kwargs.setdefault('dkType','log')
@@ -124,6 +124,10 @@ class PhotALPs_ICM(object):
 
 	super(PhotALPs_ICM,self).__init__()
 
+
+	return
+	
+
     def update_params(self, new_Bn = True, **kwargs):
 	"""Update all parameters with new values and initialize all matrices
 	
@@ -132,13 +136,14 @@ class PhotALPs_ICM(object):
 	new_B_n:	boolean, if True, recalculate B field and electron density
 	
 	"""
-
 	self.__dict__.update(kwargs)
 
 	self.Nd	= int(self.r_abell / self.Lcoh)	# number of domains, no expansion assumed
 	self.r	= np.linspace(self.Lcoh, self.r_abell + self.Lcoh, int(self.Nd))
 
 	if self.B_gauss:
+	    if not self.kL:
+		self.kL = 1. / self.r_abell
 	    self.bfield	= Bgaus(**kwargs)		# init gaussian turbulent field
 
 	if new_Bn:
