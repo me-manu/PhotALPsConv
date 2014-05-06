@@ -213,7 +213,7 @@ class PhotALPs_ICM(object):
 	self.Dpar	= Delta_pl_kpc(self.n,self.E) + 3.5*Delta_QED_kpc(self.B,self.E)	# np.arrays , self.Nd-dim
 	self.Dag	= Delta_ag_kpc(self.g,self.B)						# np.array, self.Nd-dim
 	self.Da		= Delta_a_kpc(self.m,self.E) * np.ones(int(self.Nd))			# np.ones, so that it is np.array, self.Nd-dim
-	self.alph	= 0.5 * np.arctan(2. * self.Dag / (self.Dpar - self.Da)) 
+	self.alph	= 0.5 * np.arctan2(2. * self.Dag , (self.Dpar - self.Da)) 
 	self.Dosc	= np.sqrt((self.Dpar - self.Da)**2. + 4.*self.Dag**2.)
 
 	return
