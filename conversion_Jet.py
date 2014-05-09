@@ -152,7 +152,7 @@ class PhotALPs_Jet(object):
 	self.Dpar	= 1e-3 * (Delta_pl_kpc(self.nr_jet * 1e3,self.E) + 3.5*Delta_QED_kpc(self.Br_jet * 1e6,self.E))	
 	self.Dag	= 1e-3 * (Delta_ag_kpc(self.g,self.Br_jet * 1e6))
 	self.Da		= 1e-3 * (Delta_a_kpc(self.m,self.E) * np.ones(int(self.Nd_jet )))
-	self.alph	= 0.5 * np.arctan(2. * self.Dag / (self.Dpar - self.Da)) 
+	self.alph	= 0.5 * np.arctan2(2. * self.Dag , (self.Dpar - self.Da)) 
 	self.Dosc	= np.sqrt((self.Dpar - self.Da)**2. + 4.*self.Dag**2.)
 
 	return

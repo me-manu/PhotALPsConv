@@ -133,5 +133,5 @@ class Bgaussian(object):
 	zz, uu = meshgrid(z,self.Un)
 	zz, vv = meshgrid(z,self.Vn)
 
-	B = sum(sqrt(self._corrTrans(kk) / pi * dd * log(1. / uu)) * cos(kk * zz + 2. * pi * vv), axis = 0)
+	B = sum(sqrt(self._corrTrans(kk) / pi * dd * 2. * log(1. / uu)) * cos(kk * zz + 2. * pi * vv), axis = 0)
 	return B

@@ -507,3 +507,68 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 
 	plt.show()
 	return
+
+    def plot_Pgg(self, EGeV, P, axis = 0, plot_all = False, filename = None, plot_one = True):
+	"""
+	Plot the transfer function
+
+	Arguments
+	---------
+	EGeV:	m-dim array with energies in GeV
+	P:	nxm-dim array with transfer function
+
+	kwargs
+	------
+	axis:	int, axis with B-field realisations (if more than one, only used if n > 1)
+	plot_all: bool, if true, plot all realizations of transfer function
+	plot_one: bool, if true, plot one realization of transfer function
+	"""
+
+	import matplotlib.pyplot as plt
+	from PhotALPsConv.tools import median_contours
+	from PhotALPsConv.deltas import Ecrit_GeV,Delta_Osc_kpc
+
+	fig = plt.figure()
+	ax = plt.subplot(111)
+	ax2 = fig.add_axes([0.2, 0.2, 0.4, 0.4])	# left bottom width height
+
+	Ecrit = Ecrit_GeV(self.m,self.kwargs['n'],self.kwargs['B'],self.g)
+
+	for i,a in enumerate([ax,ax2]):
+	    a.set_xscale('log')
+	    a.set_yscale('log')
+
+
+	    if len(P.shape) > 1:
+		MedCon = median_contours(P, axis = axis)
+		a.fill_between(EGeV,MedCon['conf_95'][0],y2 = MedCon['conf_95'][1], color = plt.cm.Greens(0.8))
+		a.fill_between(EGeV,MedCon['conf_68'][0],y2 = MedCon['conf_68'][1], color = plt.cm.Greens(0.5))
+		if plot_one:
+		    a.plot(EGeV,P[0], ls = '-', color = '0.', label = '$P_{\gamma\gamma}$, one realization', lw = 2)
+		if plot_all:
+		    for i in range(1,P.shape[axis]):
+			a.plot(EGeV,P[i], ls = ':', color = '0.', lw = 1)
+	    else:
+		a.plot(EGeV,P, ls = '-', color = '0.', label = '$P_{\gamma\gamma}$')
+
+	    a.axvline(Ecrit, 
+		ls = '--', color = '0.', 
+		label = r'$E_\mathrm{{crit}}$'
+		)
+
+	    a.plot(EGeV,np.exp(-1. * self.ebl_norm * self.tau.opt_depth_array(self.z,EGeV / 1e3)[0]), ls = '-', color = 'red', lw = 2.,label = r'$\exp(-\tau)$')
+	    if not i:
+		a.legend(loc = 3, fontsize = 'small')
+		a.axis([EGeV[0],EGeV[-1],1e-3,1.1])
+		ax.set_xlabel("Energy (GeV)")
+		ax.set_ylabel("Photon survival probability")
+	    else:
+		a.axis([Ecrit / 10,Ecrit * 10,5e-1,1.1])
+
+	if not filename == None:
+	    plt.savefig(filename + '.pdf', format = 'pdf')
+	    plt.savefig(filename + '.png', format = 'png')
+	    plt.show()
+
+
+	return ax,ax2
