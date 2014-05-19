@@ -115,11 +115,11 @@ def Delta_Osc_Mpc(m,n,g,B,E):
 
 #Plasma freq in 10^-10 eV
 #n is electron density in 10^-7 cm^-3
-w_pl_e10 = lambda n: 7.37e-4*np.sqrt(n)
+w_pl_e10 = lambda n: 0.000117*np.sqrt(n)
 
 #Plasma freq in 10^-9 eV
 #n is electron density in 10^-3 cm^-3
-w_pl_e9 = lambda n: 7.37e-3*np.sqrt(n)
+w_pl_e9 = lambda n: 0.00117*np.sqrt(n)
 
 
 #from math import abs
