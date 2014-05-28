@@ -104,14 +104,14 @@ class PhotALPs_ICM(object):
 	kwargs.setdefault('m',1.)
 	kwargs.setdefault('B',1.)
 	kwargs.setdefault('n',1.)
-	kwargs.setdefault('Lcoh',1.)
+	kwargs.setdefault('Lcoh',0.)
 	kwargs.setdefault('r_abell',100.)
 	kwargs.setdefault('r_core',200.)
 	kwargs.setdefault('E_GeV',1.)
 
 	kwargs.setdefault('B_gauss',False)
 	kwargs.setdefault('kL',0.)
-	kwargs.setdefault('kH',200.)
+	kwargs.setdefault('kH',15.)
 	kwargs.setdefault('q',-11. / 3.)
 	kwargs.setdefault('dkType','log')
 	kwargs.setdefault('dkSteps',0)
@@ -144,7 +144,15 @@ class PhotALPs_ICM(object):
 	if self.B_gauss:
 	    if not self.kL:
 		self.kL = 1. / self.r_abell
+		kwargs['kL'] = self.kL
+	    if not self.Lcoh:
+		self.Lcoh = 1. / self.kH
+		kwargs['Lcoh'] = self.Lcoh
 	    self.bfield	= Bgaus(**kwargs)		# init gaussian turbulent field
+	else:
+	    if not self.Lcoh:
+		self.Lcoh = 10.
+		kwargs['Lcoh'] = self.Lcoh
 
 	if new_Bn:
 	    self.new_B_n()
