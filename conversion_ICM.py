@@ -104,7 +104,7 @@ class PhotALPs_ICM(object):
 	kwargs.setdefault('m',1.)
 	kwargs.setdefault('B',1.)
 	kwargs.setdefault('n',1.)
-	kwargs.setdefault('Lcoh',0.)
+	kwargs.setdefault('Lcoh',10.)
 	kwargs.setdefault('r_abell',100.)
 	kwargs.setdefault('r_core',200.)
 	kwargs.setdefault('E_GeV',1.)
@@ -138,21 +138,16 @@ class PhotALPs_ICM(object):
 	"""
 	self.__dict__.update(kwargs)
 
-	self.Nd	= int(self.r_abell / self.Lcoh)	# number of domains, no expansion assumed
-	self.r	= np.linspace(self.Lcoh, self.r_abell + self.Lcoh, int(self.Nd))
-
 	if self.B_gauss:
 	    if not self.kL:
 		self.kL = 1. / self.r_abell
 		kwargs['kL'] = self.kL
-	    if not self.Lcoh:
-		self.Lcoh = 1. / self.kH
-		kwargs['Lcoh'] = self.Lcoh
+	    self.Lcoh = 1. / self.kH
+	    kwargs['Lcoh'] = self.Lcoh
 	    self.bfield	= Bgaus(**kwargs)		# init gaussian turbulent field
-	else:
-	    if not self.Lcoh:
-		self.Lcoh = 10.
-		kwargs['Lcoh'] = self.Lcoh
+
+	self.Nd	= int(self.r_abell / self.Lcoh)	# number of domains, no expansion assumed
+	self.r	= np.linspace(self.Lcoh, self.r_abell + self.Lcoh, int(self.Nd))
 
 	if new_Bn:
 	    self.new_B_n()
@@ -161,6 +156,7 @@ class PhotALPs_ICM(object):
 	self.T2		= np.zeros((3,3,self.Nd),np.complex)
 	self.T3		= np.zeros((3,3,self.Nd),np.complex)
 	self.Un		= np.zeros((3,3,self.Nd),np.complex)
+
 
 	return
 

@@ -68,8 +68,8 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	d : float (optional)
 	    position of origin along x axis in GC coordinates in kpc
 	    default is postion of the sun, i.e. d = -8.5kpc
-	Lcoh : float (optional)
-	    coherence length or step size for integration
+	int_steps: interger (default = 100)
+	    Number of integration steps
 	NE2001: bool (optional, default = False)
 	    if True, NE2001 code is used to compute electron density instead of constant value
 	NE2001file: string (optional, default = None)
@@ -97,7 +97,7 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	kwargs.setdefault('rho_max',20.)
 	kwargs.setdefault('zmax',50.)
 	kwargs.setdefault('d',-8.5)
-	kwargs.setdefault('Lcoh',0.01)
+	kwargs.setdefault('int_steps',100)
 	kwargs.setdefault('NE2001', False)
 	kwargs.setdefault('NE2001file',None)
 	kwargs.setdefault('model','jansson')
@@ -221,7 +221,6 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	E:		 	 float, Energy in GeV
 	ra, dec:  		 float, float, coordinates of the source in degrees
 	pol:			 np.array((3,3)): 3x3 matrix of the initial polarization
-	Lcoh (optional):	 float, cell size
 	pol_final (optional):	 np.array((3,3)): 3x3 matrix of the final polarization
 				 if none, results for final polarization 
 				 in t,u and ALPs direction are returned
@@ -234,12 +233,10 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	self.__set_coordinates(ra,dec)
 	self.E	= E
 
-	# first domain is that one farthest away from us, i.e. that on the edge of the milky way
-	if int(self.smax/self.Lcoh) < 100:				# at least 100 domains
-	    sa	= np.linspace(self.smax,0., 100,endpoint = False)	# divide distance into smax / Lcoh large cells
-	    self.Lcoh = self.smax / 100.
-	else:
-	    sa	= np.linspace(self.smax,0., int(self.smax/self.Lcoh),endpoint = False)	# divide distance into smax / Lcoh large cells
+	sa	= np.linspace(self.smax,0., self.int_steps,endpoint = False)	# divide distance into smax / Lcoh large cells
+	self.Lcoh = self.smax / 100.
+	#else:
+	#    sa	= np.linspace(self.smax,0., int(self.smax/self.Lcoh),endpoint = False)	# divide distance into smax / Lcoh large cells
 
 	self.s = sa
 	# --- Calculate B-field in all domains ---------------------------- #
