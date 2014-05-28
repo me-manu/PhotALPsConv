@@ -1,4 +1,7 @@
 """
+Bturb.py
+========
+
 Class to calculate turbulent B field
 
 History:
@@ -12,8 +15,9 @@ __version__ = 0.01
 # --- Imports ------------ #
 import numpy as np
 from numpy.random import rand
-from numpy import log,log10,pi,meshgrid,cos,sum,sqrt
+from numpy import log,log10,pi,meshgrid,cos,sum,sqrt,linspace,array,isscalar
 from math import ceil
+from scipy.integrate import simps
 
 class Bgaussian(object):
     """
@@ -27,6 +31,8 @@ class Bgaussian(object):
 	------
 	kH:		float, upper wave number cutoff, should be at at least > 1. / osc. wavelength (default = 1 / (1 kpc))
 	kL:		float, lower wave number cutoff, should be of same size as the system (default = 1 / (100 kpc))
+	kMin:		float, minimum wave number in 1. / kpc, defualt 1e-3 * kL (the k interval runs from kMin to kH)
+
 	B:  		float, B field strength, energy is B^2 / 4pi (default = 1 muG)
 	q:  		float, power-law turbulence spectrum (default: q = 11/3 is Kolmogorov type spectrum)
 	dkType:		string, either linear, log, or random. Determine the spacing of the dk intervals 	
@@ -36,6 +42,7 @@ class Bgaussian(object):
 # --- Set the defaults 
 	kwargs.setdefault('kL',1. / 100.)
 	kwargs.setdefault('kH',1. / 1.)
+	kwargs.setdefault('kMin',-1)
 	kwargs.setdefault('B',1.)
 	kwargs.setdefault('q',-11. / 3.)
 	kwargs.setdefault('dkType','log')
@@ -43,22 +50,25 @@ class Bgaussian(object):
 
 	self.__dict__.update(kwargs)
 
+	if self.kMin < 0.:
+	    self.kMin = self.kL * 1e-3
+
 	if not self.dkSteps:
-	    self.dkSteps = int(ceil(10. * (log10(self.kH) - log10(self.kL)) ** 2.))
+	    self.dkSteps = int(ceil(10. * (log10(self.kH) - log10(self.kMin)) ** 2.))
 
 # initialize the k values and intervalls.
 	if self.dkType == 'linear':
-	    self.kn = np.linspace(self.kL, self.kH, self.dkSteps)
+	    self.kn = np.linspace(self.kMin, self.kH, self.dkSteps)
 	    self.dk = self.kn[1:] - self.kn[:-1]
 	    self.kn = self.kn[:-1]
 	elif self.dkType == 'log':
-	    self.kn = 10.**np.linspace(log10(self.kL), log10(self.kH), self.dkSteps)
+	    self.kn = 10.**np.linspace(log10(self.kMin), log10(self.kH), self.dkSteps)
 	    self.dk = self.kn[1:] - self.kn[:-1]
 	    self.kn = self.kn[:-1]
 	elif self.dkType == 'random':
 	    self.dk = rand(self.dkSteps)
-	    self.dk *= (self.kH - self.kL) / sum(self.dk)
-	    self.kn = np.array([self.kL + sum(self.dk[:n]) for n in range(self.dk.shape[0])])
+	    self.dk *= (self.kH - self.kMin) / sum(self.dk)
+	    self.kn = np.array([self.kMin + sum(self.dk[:n]) for n in range(self.dk.shape[0])])
 	else:
 	    raise ValueError("dkType has to either 'linear', 'log', or 'random', not {0:s}".format(self.dkType))
 
@@ -72,14 +82,14 @@ class Bgaussian(object):
 	"""Generate new random numbers for Un,Vn, and kn if knType == random"""
 	if self.dkType == 'random':
 	    self.dk = rand(self.dkSteps)
-	    self.dk *= (self.kH - self.kL) / sum(self.dk)
-	    self.kn = np.array([self.kL + sum(self.dk[:n]) for n in range(self.dk.shape[0])])
+	    self.dk *= (self.kH - self.kMin) / sum(self.dk)
+	    self.kn = np.array([self.kMin + sum(self.dk[:n]) for n in range(self.dk.shape[0])])
 
 	self.Un = rand(self.kn.shape[0])
 	self.Vn = rand(self.kn.shape[0])
 	return
 
-    def _Fq(self,x):
+    def Fq(self,x):
 	"""
 	Calculate the F_q function for given x,kL, and kH
 
@@ -92,15 +102,22 @@ class Bgaussian(object):
 	n-dim array with Fq values
 	"""
 	if self.q == 0.:
-	    return 3. * self.kH **2. / (self.kH ** 3. - self.kL ** 3.) * ( 0.5 * (1. - x*x) - x * x * log(x) )
+	    F		= lambda x: 3. * self.kH **2. / (self.kH ** 3. - self.kL ** 3.) * ( 0.5 * (1. - x*x) - x * x * log(x) )
+	    F_low	= lambda x: 3. * (0.5 * (self.kH ** 2. - self.kL ** 2.) + (x * self.kH) * (x * self.kH) * log(self.kH / self.kL) ) / (self.kH ** 3. - self.kL ** 3.)
 	elif self.q == -2.:
-	    return ( 0.5 * (1. - x*x) - log(x) ) / (self.kH  - self.kL )
+	    F		= lambda x: ( 0.5 * (1. - x*x) - log(x) ) / (self.kH  - self.kL )
+	    F_low	= lambda x: ( log(self.kH / self.kL ) + (x * self.kH) * (x * self.kH) * 0.5 * (self.kL ** (-2) - self.kH ** (-2)) ) / (self.kH  - self.kL )
 	elif self.q == -3.:
-	    return 1. / log(self.kH / self.kL) / self.kH / x  / 3. * (-x*x*x - 3. * x + 4.)
+	    F		= lambda x:  1. / log(self.kH / self.kL) / self.kH / x  / 3. * (-x*x*x - 3. * x + 4.)
+	    F_low	= lambda x: ( (self.kL ** (-2) - self.kH ** (-2)) + (x * self.kH) * (x * self.kH) / 3. * (self.kL ** (-3) - self.kH ** (-3)) ) / log(self.kH / self.kL )
 	else:
-	    return self.kH ** (self.q + 2.) / (self.kH ** (self.q + 3.) - self.kL ** (self.q + 3.)) * \
-		    (self.q + 3.) / (self.q * ( self.q + 2.)) * \
-		    (self.q + x * x * ( 2. + self.q - 2. * (1. + self.q) * x ** self.q))
+	    F		= lambda x: self.kH ** (self.q + 2.) / (self.kH ** (self.q + 3.) - self.kL ** (self.q + 3.)) * \
+			    (self.q + 3.) / (self.q * ( self.q + 2.)) * \
+			    (self.q + x * x * ( 2. + self.q - 2. * (1. + self.q) * x ** self.q))
+	    F_low	= lambda x: (self.q + 3.) * ( (self.kH ** (self.q + 2) - self.kL ** (self.q +2)) / (self.q + 2.) + \
+			    (x * self.kH) * (x * self.kH) / self.q * (self.kH ** self.q - self.kL ** self.q) ) / \
+			    (self.kH ** (self.q + 3.) - self.kL**(self.q + 3) ) 
+	return F(x) * (x >= self.kL / self.kH) + F_low(x) * (x < self.kL / self.kH)
 
     def _corrTrans(self,k):
 	"""
@@ -114,7 +131,7 @@ class Bgaussian(object):
 	-------
 	n-dim array with values of the correlation function
 	"""
-	return pi / 4. * self.B * self.B * self._Fq(k / self.kH)
+	return pi / 4. * self.B * self.B * self.Fq(k / self.kH)
 
     def Bgaus(self, z):
 	"""
@@ -135,3 +152,26 @@ class Bgaussian(object):
 
 	B = sum(sqrt(self._corrTrans(kk) / pi * dd * 2. * log(1. / uu)) * cos(kk * zz + 2. * pi * vv), axis = 0)
 	return B
+
+    def spatialCorr(self, z, steps = 10000):
+	"""
+	Calculate the spatial coherence of the turbulent field
+
+	Arguments
+	---------
+	z:	m-dim array, distance traversed in magnetic field
+
+	kwargs
+	------
+	steps:	integer, number of integration steps
+
+	Returns
+	-------
+	m-dim array with spatial coherences 
+	"""
+	if isscalar(z):
+	    z = array([z])
+	t	= 10.**linspace(-9.,0.,steps)
+	tt,zz	= meshgrid(t,z)
+	kernel	= self.Fq(tt) * cos(tt * zz * self.kH) # * self.kH	# as daniele does it
+	return self.B * self.B / 4. * simps(kernel * tt,log(tt),axis = 1)
