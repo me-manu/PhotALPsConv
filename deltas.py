@@ -53,7 +53,7 @@ Delta_QED_Mpc= lambda B,E: 4.1e-9*E*B**2.
 #returns Delta in kpc^-1
 Delta_QED_kpc= lambda B,E: 4.1e-9*E*B**2.
 
-def Delta_Osc_kpc(m,n,g,B,E): 
+def Delta_Osc_kpc_array(m,n,g,B,E): 
     """
     Compute Delta Osc
 
@@ -83,7 +83,7 @@ def Delta_Osc_kpc(m,n,g,B,E):
     result += 4. * np.ones((E.shape[0],B.shape[0]))* (1.52e-2*g*B)**2.
     return np.sqrt(result)
 
-def Delta_Osc_Mpc(m,n,g,B,E): 
+def Delta_Osc_Mpc_array(m,n,g,B,E): 
     """
     Compute Delta Osc
 
@@ -141,3 +141,35 @@ Ecrit_GeV= lambda m,n,B,g: 2.5e0*abs(m**2. - w_pl_e9(n)**2.)/B/g
 #B is magnetic field in muG
 #g is photon axion coupling in 10^-11 GeV^-1
 Emax_GeV= lambda B,g: 2.12e6 * g / B
+
+# mixing angle
+#m is axion mass in 10^-09 eV
+#n is electron density in 10^-3 cm^-3
+#B is magnetic field in muG
+#g is photon axion coupling in 10^-11 GeV^-1
+#E is energy in GeV
+alpha_kpc = lambda g,B,n,E,m: 0.5 * np.arctan2(2. * Delta_ag_kpc(g,B) , (Delta_pl_kpc(n,E) + 3.5*Delta_QED_kpc(B,E) - Delta_a_kpc(m,E))) 
+
+# mixing angle
+#m is axion mass in 10^-10 eV
+#n is electron density in 10^-7 cm^-3
+#B is magnetic field in nG
+#g is photon axion coupling in 10^-11 GeV^-1
+#E is energy in TeV
+alpha_Mpc = lambda g,B,n,E,m: 0.5 * np.arctan2(2. * Delta_ag_Mpc(g,B) , (Delta_pl_Mpc(n,E) + 3.5*Delta_QED_Mpc(B,E) - Delta_a_Mpc(m,E))) 
+
+# oscillation wave number
+#m is axion mass in 10^-09 eV
+#n is electron density in 10^-3 cm^-3
+#B is magnetic field in muG
+#g is photon axion coupling in 10^-11 GeV^-1
+#E is energy in GeV
+Delta_osc_kpc = lambda g,B,n,E,m  : np.sqrt((Delta_pl_kpc(n,E) + 3.5*Delta_QED_kpc(B,E) - Delta_a_kpc(m,E)) ** 2. + 4. * Delta_ag_kpc(g,B) ** 2.)
+
+# oscillation wave number
+#m is axion mass in 10^-10 eV
+#n is electron density in 10^-7 cm^-3
+#B is magnetic field in nG
+#g is photon axion coupling in 10^-11 GeV^-1
+#E is energy in TeV
+Delta_osc_Mpc = lambda g,B,n,E,m  : np.sqrt((Delta_pl_Mpc(n,E) + 3.5*Delta_QED_Mpc(B,E) - Delta_a_Mpc(m,E)) ** 2. + 4. * Delta_ag_Mpc(g,B) ** 2.)

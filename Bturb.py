@@ -52,6 +52,8 @@ class Bgaussian(object):
 
 	if self.kMin < 0.:
 	    self.kMin = self.kL * 1e-3
+# old version:
+	    #self.kMin = self.kL 
 
 	if not self.dkSteps:
 	    self.dkSteps = int(ceil(10. * (log10(self.kH) - log10(self.kMin)) ** 2.))
@@ -141,7 +143,7 @@ class Bgaussian(object):
 	---------
 	z:	m-dim array, distance traversed in magnetic field
 
-	Returns
+	Return
 	-------
 	m-dim array with values of transversal field
 	"""
@@ -173,5 +175,5 @@ class Bgaussian(object):
 	    z = array([z])
 	t	= 10.**linspace(-9.,0.,steps)
 	tt,zz	= meshgrid(t,z)
-	kernel	= self.Fq(tt) * cos(tt * zz * self.kH) # * self.kH	# as daniele does it
-	return self.B * self.B / 4. * simps(kernel * tt,log(tt),axis = 1)
+	kernel	= self.Fq(tt) * cos(tt * zz * self.kH)
+	return self.B * self.B / 4. * simps(kernel * tt,log(tt),axis = 1)  * self.kH	# the self.kH factor comes from the substituitioin t = k / kH

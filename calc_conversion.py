@@ -15,7 +15,7 @@ import numpy as np
 import iminuit as minuit
 import sys
 import yaml
-from math import floor
+from math import floor, ceil
 from eblstud.tools.lsq_fit import *
 from scipy.integrate import simps
 from scipy.interpolate import interp1d
@@ -269,7 +269,7 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	n+1-dim array with average photon survival probability for each bin
 	"""
 	if not func == None:
-	    self.func = func
+	    self.funcAve = func
 	if not pfunc == None:
 	    self.pobs = pfunc
 
@@ -296,8 +296,8 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 		logE_array	= np.vstack((logE_array,logE))
 		pgg_array	= np.vstack((pgg_array,np.exp(self.pgg(logE))))
 	# average transfer matrix over the bins
-	return	simps(self.func(self.pobs,np.exp(logE_array)) * pgg_array * np.exp(logE_array), logE_array, axis = 1) / \
-		simps(self.func(self.pobs,np.exp(logE_array)) * np.exp(logE_array), logE_array, axis = 1)
+	return	simps(self.funcAve(self.pobs,np.exp(logE_array)) * pgg_array * np.exp(logE_array), logE_array, axis = 1) / \
+		simps(self.funcAve(self.pobs,np.exp(logE_array)) * np.exp(logE_array), logE_array, axis = 1)
 
 # --- Convenience function to plot a spectrum together with it's absorption corrected versions ----- #
     def plot_spectrum(self, x,y,s, logPgg = 'None', xerr = 'None',filename = 'spectrum.pdf',Emin = 0., Emax = 0.):
@@ -563,7 +563,12 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 		ax.set_xlabel("Energy (GeV)")
 		ax.set_ylabel("Photon survival probability")
 	    else:
-		a.axis([Ecrit / 10,Ecrit * 10,5e-1,1.1])
+		imin = np.argmin(np.abs(EGeV - Ecrit))
+		xmin = floor(np.log10(Ecrit)) - 0.5
+		xmax = floor(np.log10(Ecrit)) + 0.5
+		ymin = ceil(np.log10(MedCon['median'][imin])) - 0.3
+		ymax = ceil(np.log10(MedCon['median'][imin]))
+		a.axis([10.**xmin,10.**xmax,10.**ymin,10.**ymax])
 
 	if not filename == None:
 	    plt.savefig(filename + '.pdf', format = 'pdf')
