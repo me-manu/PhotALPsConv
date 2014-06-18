@@ -183,7 +183,7 @@ class PhotALPs_ICM(object):
 		n0 = self.n[0]
 # check for double beta profile
 	    try:		
-		if np.isscalar(self.n):
+		if np.isscalar(self.n2):
 		    n2 = self.n2
 		else:
 		    n2 = self.n2[0]
