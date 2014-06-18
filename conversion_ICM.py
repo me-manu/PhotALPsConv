@@ -181,8 +181,18 @@ class PhotALPs_ICM(object):
 		n0 = self.n
 	    else:
 		n0 = self.n[0]
-	    self.n =  n0 * (np.ones(int(self.Nd)) + self.r**2./self.r_core**2.)**(-1.5 * self.beta)
-	    self.B = self.B * (self.n / n0 )**self.eta
+# check for double beta profile
+	    try:		
+		if np.isscalar(self.n):
+		    n2 = self.n2
+		else:
+		    n2 = self.n2[0]
+		self.n =  np.sqrt(n0**2. * (np.ones(int(self.Nd)) + self.r**2./self.r_core**2.)**(-3. * self.beta) +\
+			    n2**2. * (np.ones(int(self.Nd)) + self.r**2./self.r_core2**2.)**(-3. * self.beta) )
+		self.B = self.B * (self.n / np.sqrt(n0**2. + n2**2.) )**self.eta
+	    except AttributeError:
+		self.n =  n0 * (np.ones(int(self.Nd)) + self.r**2./self.r_core**2.)**(-1.5 * self.beta)
+		self.B = self.B * (self.n / n0 )**self.eta
 	return
 
     def new_random_psi(self):

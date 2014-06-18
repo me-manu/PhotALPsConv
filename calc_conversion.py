@@ -66,6 +66,8 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	sens:		scalar < 1., sets the number of domains, for the B field in the n-th domain, 
 			it will have changed by B_n = sens * B_{n-1}
 	Psi:		scalar, angle between B field and transversal photon polarization in the jet, default: 0.
+	theta_jet:	float, angle between jet and l.o.s. in degrees, default: 3.
+	Gamma:		float, bulk lorentz factor, default: 10.
 
 	model:		GMF model that is used. Currently available: pshirkov (ASS), jansson (default)
 	ebl:		EBL model that is used. defaut: gilmore
@@ -508,7 +510,7 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	plt.show()
 	return
 
-    def plot_Pgg(self, EGeV, P, axis = 0, plot_all = False, filename = None, plot_one = True):
+    def plot_Pgg(self, EGeV, P, axis = 0, plot_all = False, filename = None, plot_one = True, EcritLabel = ''):
 	"""
 	Plot the transfer function
 
@@ -526,7 +528,7 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 
 	import matplotlib.pyplot as plt
 	from PhotALPsConv.tools import median_contours
-	from PhotALPsConv.deltas import Ecrit_GeV,Delta_Osc_kpc
+	from PhotALPsConv.deltas import Ecrit_GeV,Delta_Osc_kpc_array
 
 	fig = plt.figure()
 	ax = plt.subplot(111)
@@ -552,8 +554,8 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 		a.plot(EGeV,P, ls = '-', color = '0.', label = '$P_{\gamma\gamma}$')
 
 	    a.axvline(Ecrit, 
-		ls = '--', color = '0.', 
-		label = r'$E_\mathrm{{crit}}$'
+		ls = '--', color = '0.',lw = 1., 
+		label = r'$E_\mathrm{{crit}}^\mathrm{{{0:s}}}$'.format(EcritLabel)
 		)
 
 	    a.plot(EGeV,np.exp(-1. * self.ebl_norm * self.tau.opt_depth_array(self.z,EGeV / 1e3)[0]), ls = '-', color = 'red', lw = 2.,label = r'$\exp(-\tau)$')

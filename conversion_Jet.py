@@ -30,7 +30,7 @@ class PhotALPs_Jet(object):
     pjet:		Exponent for magnetic field (1=toroidal, 2=poloidal)
     g:		Photon ALP coupling in 10^{-11} GeV^-1
     m:		ALP mass in neV
-    E:		energy in GeV
+    E:		energy in GeV in the lab frame
     njet:		electron density in the jet at r = R_BLR, in cm^-3
     T1jet:		Transfer matrix 1 (3x3xNd)-matrix
     T2jet:		Transfer matrix 2 (3x3xNd)-matrix		
@@ -65,7 +65,7 @@ class PhotALPs_Jet(object):
 	------
 	Rmax:		distance up to which jet extends, in pc.
 	B:		field strength at r = R_BLR in G, default: 0.1 G
-	E:		Energy in GeV for mixing is evaluated, default: 1 TeV.
+	E:		Energy in the lab frame in GeV for mixing is evaluated, default: 1 TeV.
 	R_BLR:		Distance of broad line region (BLR) to centrum in pc, default: 0.3 pc
 	g:		Photon ALP coupling in 10^{-11} GeV^-1, default: 1.
 	m:		ALP mass in neV, default: 1.
@@ -74,6 +74,8 @@ class PhotALPs_Jet(object):
 	p:		exponent for scaling of magneitc field, default: 1.
 	sens:		scalar < 1., sets the number of domains, for the B field in the n-th domain, it will have changed by B_n = sens * B_{n-1}
 	Psi:		scalar, angle between B field and transversal photon polarization, default: 0.
+	theta_jet:	float, angle between jet and l.o.s. in degrees, default: 3.
+	Gamma:		float, bulk lorentz factor, default: 10.
 
 	Returns
 	-------
@@ -103,6 +105,8 @@ class PhotALPs_Jet(object):
 	kwargs.setdefault('pjet',1.)
 	kwargs.setdefault('sens',0.99)
 	kwargs.setdefault('Psi',0.)
+	kwargs.setdefault('theta_jet',3.)
+	kwargs.setdefault('Gamma',10.)
 # --------------------
 	self.update_params_Jet(**kwargs)
 
@@ -115,14 +119,16 @@ class PhotALPs_Jet(object):
 
 	self.__dict__.update(kwargs)
 
-	self.Bf		= lambda r: self.Bjet * (r / self.R_BLR) ** -self.pjet
-	self.nf		= lambda r: self.njet * (r / self.R_BLR) ** -self.sjet
+	self.Bf		= lambda r: self.Bjet * (r / self.R_BLR) ** -self.pjet	# normalized to R_BLR
+	self.nf		= lambda r: self.njet * (r / self.R_BLR) ** -self.sjet	# normalized to R_BLR
+	#self.Bf		= lambda r: self.Bjet * (r / 0.3) ** -self.pjet	# normalized to 0.3 pc
+	#self.nf		= lambda r: self.njet * (r / 0.3) ** -self.sjet	# normalized to 0.3 pc
 
 	self.Nd_jet	= ceil( -1. * self.pjet * np.log(self.Rmax/self.R_BLR) / np.log(self.sens) )	
 	self.Lcoh_jet	= self.R_BLR *  self.sens ** ( - np.linspace(1.,self.Nd_jet,self.Nd_jet) / self.pjet ) * (1. - self.sens) # domain length
-	self.r_jet		= self.R_BLR *  self.sens ** ( - np.linspace(0.,self.Nd_jet,self.Nd_jet) / self.pjet ) 		# distance from BLR
+	self.r_jet	= self.R_BLR *  self.sens ** ( - np.linspace(0.,self.Nd_jet,self.Nd_jet) / self.pjet ) 		# distance from BLR
 
-
+	self.doppler = 1./(self.Gamma * ( 1. - np.sqrt(1. - 1./self.Gamma**2.) * np.cos(self.theta_jet * np.pi / 180.)))
 
 	self.Br_jet = self.Bf(self.r_jet)
 	self.nr_jet = self.nf(self.r_jet)
@@ -138,6 +144,7 @@ class PhotALPs_Jet(object):
     def __setDeltas_Jet(self):
 	"""
 	Set Deltas of mixing matrix for each domain in units of 1/pc
+	Energy is transformed in comoving frame (primed), i.e. E' = E / doppler-factor
 	
 	Parameters
 	----------
@@ -148,10 +155,10 @@ class PhotALPs_Jet(object):
 	Nothing
 	"""
 
-	self.Dperp	= 1e-3 * (Delta_pl_kpc(self.nr_jet * 1e3,self.E) + 2.*Delta_QED_kpc(self.Br_jet * 1e6,self.E))
-	self.Dpar	= 1e-3 * (Delta_pl_kpc(self.nr_jet * 1e3,self.E) + 3.5*Delta_QED_kpc(self.Br_jet * 1e6,self.E))	
+	self.Dperp	= 1e-3 * (Delta_pl_kpc(self.nr_jet * 1e3,self.E / self.doppler) + 2.*Delta_QED_kpc(self.Br_jet * 1e6,self.E / self.doppler))
+	self.Dpar	= 1e-3 * (Delta_pl_kpc(self.nr_jet * 1e3,self.E / self.doppler) + 3.5*Delta_QED_kpc(self.Br_jet * 1e6,self.E / self.doppler))	
 	self.Dag	= 1e-3 * (Delta_ag_kpc(self.g,self.Br_jet * 1e6))
-	self.Da		= 1e-3 * (Delta_a_kpc(self.m,self.E) * np.ones(int(self.Nd_jet )))
+	self.Da		= 1e-3 * (Delta_a_kpc(self.m,self.E / self.doppler) * np.ones(int(self.Nd_jet )))
 	self.alph	= 0.5 * np.arctan2(2. * self.Dag , (self.Dpar - self.Da)) 
 	self.Dosc	= np.sqrt((self.Dpar - self.Da)**2. + 4.*self.Dag**2.)
 
