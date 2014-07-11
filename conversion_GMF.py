@@ -109,6 +109,8 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	#super(PhotALPs_GMF,self).__init__(g = self.g, m = self.m, n = self.n, Lcoh = self.Lcoh)	#Inherit everything from PhotALPs_ICM
 	super(PhotALPs_GMF,self).__init__(**kwargs)	#Inherit everything from PhotALPs_ICM
 
+	self.set_coordinates = lambda r,d: self.__set_coordinates(r,d)	# helper function
+
 	return
 
     def update_params_GMF(self, **kwargs):

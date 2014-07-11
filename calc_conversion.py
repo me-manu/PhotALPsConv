@@ -566,8 +566,8 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 		ax.set_ylabel("Photon survival probability")
 	    else:
 		imin = np.argmin(np.abs(EGeV - Ecrit))
-		xmin = floor(np.log10(Ecrit)) - 0.5
-		xmax = floor(np.log10(Ecrit)) + 0.5
+		xmin = np.log10(Ecrit) - 0.5
+		xmax = np.log10(Ecrit) + 0.5
 		ymin = ceil(np.log10(MedCon['median'][imin])) - 0.3
 		ymax = ceil(np.log10(MedCon['median'][imin]))
 		a.axis([10.**xmin,10.**xmax,10.**ymin,10.**ymax])

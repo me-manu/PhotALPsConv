@@ -73,7 +73,7 @@ class PhotALPs_Jet(object):
 	s:		exponent for scaling of electron density, default: 2.
 	p:		exponent for scaling of magneitc field, default: 1.
 	sens:		scalar < 1., sets the number of domains, for the B field in the n-th domain, it will have changed by B_n = sens * B_{n-1}
-	Psi:		scalar, angle between B field and transversal photon polarization, default: 0.
+	Psi:		scalar, angle between transversal B field and photon polarization along y-axis in degrees, default: 0.
 	theta_jet:	float, angle between jet and l.o.s. in degrees, default: 3.
 	Gamma:		float, bulk lorentz factor, default: 10.
 
@@ -138,7 +138,7 @@ class PhotALPs_Jet(object):
 	self.T3jet	= np.zeros((3,3,self.Nd_jet),np.complex)
 	self.Unjet	= np.zeros((3,3,self.Nd_jet),np.complex)
 
-	self.Psin_jet	= np.ones(self.Nd_jet) * self.Psi
+	self.Psin_jet	= np.ones(self.Nd_jet) * self.Psi * np.pi / 180.
 	return
 
     def __setDeltas_Jet(self):
@@ -199,7 +199,7 @@ class PhotALPs_Jet(object):
 	c = np.cos(self.Psin_jet)
 	s = np.sin(self.Psin_jet)
 	self.T1jet[0,0,:]	= c*c
-	#self.T1jet[0,1,:]	= -1. * c*s
+	self.T1jet[0,1,:]	= -1. * c*s
 	self.T1jet[1,0,:]	= self.T1jet[0,1]
 	self.T1jet[1,1,:]	= s*s
 	return
@@ -220,9 +220,9 @@ class PhotALPs_Jet(object):
 	s = np.sin(self.Psin_jet)
 	ca = np.cos(self.alph)
 	sa = np.sin(self.alph)
-	#self.T2jet[0,0,:] = s*s*sa*sa
-	#self.T2jet[0,1,:] = s*c*sa*sa
-	#self.T2jet[0,2,:] = -1. * s * sa *ca
+	self.T2jet[0,0,:] = s*s*sa*sa
+	self.T2jet[0,1,:] = s*c*sa*sa
+	self.T2jet[0,2,:] = -1. * s * sa *ca
 
 	self.T2jet[1,0,:] = self.T2jet[0,1]
 	self.T2jet[1,1,:] = c*c*sa*sa
@@ -249,9 +249,9 @@ class PhotALPs_Jet(object):
 	s = np.sin(self.Psin_jet)
 	ca = np.cos(self.alph)
 	sa = np.sin(self.alph)
-	#self.T3jet[0,0,:] = s*s*ca*ca
-	#self.T3jet[0,1,:] = s*c*ca*ca
-	#self.T3jet[0,2,:] = s*sa*ca
+	self.T3jet[0,0,:] = s*s*ca*ca
+	self.T3jet[0,1,:] = s*c*ca*ca
+	self.T3jet[0,2,:] = s*sa*ca
 
 	self.T3jet[1,0,:] = self.T3jet[0,1]
 	self.T3jet[1,1,:] = c*c*ca*ca
