@@ -187,9 +187,15 @@ class PhotALPs_ICM(object):
 		    n2 = self.n2
 		else:
 		    n2 = self.n2[0]
-		self.n =  np.sqrt(n0**2. * (np.ones(int(self.Nd)) + self.r**2./self.r_core**2.)**(-3. * self.beta) +\
+		try:	# check for two different beta values
+		    self.beta2	
+		    self.n =  n0 * (np.ones(int(self.Nd)) + self.r**2./self.r_core**2.)**(-1.5 * self.beta) +\
+			    n2 * (np.ones(int(self.Nd)) + self.r**2./self.r_core2**2.)**(-1.5 * self.beta2) 
+		    self.B = self.B * (self.n / (n0 + n2) )**self.eta
+		except NameError:
+		    self.n =  np.sqrt(n0**2. * (np.ones(int(self.Nd)) + self.r**2./self.r_core**2.)**(-3. * self.beta) +\
 			    n2**2. * (np.ones(int(self.Nd)) + self.r**2./self.r_core2**2.)**(-3. * self.beta) )
-		self.B = self.B * (self.n / np.sqrt(n0**2. + n2**2.) )**self.eta
+		    self.B = self.B * (self.n / np.sqrt(n0**2. + n2**2.) )**self.eta
 	    except AttributeError:
 		self.n =  n0 * (np.ones(int(self.Nd)) + self.r**2./self.r_core**2.)**(-1.5 * self.beta)
 		self.B = self.B * (self.n / n0 )**self.eta
