@@ -26,6 +26,8 @@ import PhotALPsConv.conversion_Jet as JET
 import PhotALPsConv.conversion as IGM 
 import PhotALPsConv.conversion_ICM as ICM 
 import PhotALPsConv.conversion_GMF as GMF 
+from PhotALPsConv.tools import median_contours
+from PhotALPsConv.deltas import Ecrit_GeV,Delta_Osc_kpc_array
 # --- EBL imports
 import eblstud.ebl.tau_from_model as TAU
 from eblstud.misc.bin_energies import calc_bin_bounds
@@ -159,6 +161,38 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	    self.pola[2,2]	= 1.
 
 	self.kwargs = kwargs	# save kwargs
+	# change galactic magnetic field model
+	try:
+	    if not self.GMF_FitVal == 0 and self.model == 'jansson':
+		parGMF			= {}
+		parGMF['Bn']		= self.Bgmf.Bn
+		parGMF['Bs']		= self.Bgmf.Bs
+		parGMF['rhon']		= self.Bgmf.rhon
+		parGMF['rhos']		= self.Bgmf.rhos
+		parGMF['whalo']		= self.Bgmf.whalo
+		parGMF['z0']		= self.Bgmf.z0
+		parGMF['BX0']		= self.Bgmf.BX0
+		parGMF['ThetaX0']	= self.Bgmf.ThetaX0
+		parGMF['rhoXc']		= self.Bgmf.rhoXc
+		parGMF['rhoX']		= self.Bgmf.rhoX
+
+		parGMF['Bn_unc']	= self.Bgmf.Bn_unc
+		parGMF['Bs_unc']	= self.Bgmf.Bs_unc
+		parGMF['rhon_unc']	= self.Bgmf.rhon_unc
+		parGMF['rhos_unc']	= self.Bgmf.rhos_unc
+		parGMF['whalo_unc']	= self.Bgmf.whalo_unc
+		parGMF['z0_unc']	= self.Bgmf.z0_unc
+		parGMF['BX0_unc']	= self.Bgmf.BX_unc
+		parGMF['ThetaX0_unc']	= self.Bgmf.ThetaX0_unc
+		parGMF['rhoXc_unc']	= self.Bgmf.rhoXc_unc
+		parGMF['rhoX_unc']	= self.Bgmf.rhoX_unc
+
+		for k in parGMF.keys():
+		    if k.find('unc') >= 0 : continue
+		    parGMF[k] = parGMF[k] + self.GMF_FitVal * parGMF[k + '_unc']
+		self.Bgmf.__dict__.update(**parGMF)
+	except AttributeError:
+	    self.GMF_FitVal = 0
 	return
 
     def calc_conversion(self,EGeV,new_angles = True):
@@ -510,7 +544,20 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	plt.show()
 	return
 
-    def plot_Pgg(self, EGeV, P, axis = 0, plot_all = False, filename = None, plot_one = True, EcritLabel = ''):
+    def EcritAve(self):
+	"""
+	calculate average critical energy if B and density are changing with radius
+
+	Returns
+	-------
+	Average critical energy is float
+	"""
+	Bave = simps(self.B * self.r, np.log(self.r)) / (self.r[-1] - self.r[0])
+	nave = simps(self.n * self.r, np.log(self.r)) / (self.r[-1] - self.r[0])
+
+	return Ecrit_GeV(self.m,nave,Bave,self.g)
+
+    def plot_Pgg(self, EGeV, P, axis = 0, plot_all = False, filename = None, plot_one = True, EcritLabel = '', y0 = 1e-3, y1 = 1.1, loc = 3):
 	"""
 	Plot the transfer function
 
@@ -524,17 +571,24 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	axis:	int, axis with B-field realisations (if more than one, only used if n > 1)
 	plot_all: bool, if true, plot all realizations of transfer function
 	plot_one: bool, if true, plot one realization of transfer function
+	y0: float, min of y-axis of main plot
+	y1: float, max of y-axis of main plot
+	loc: int, location of legend
 	"""
 
 	import matplotlib.pyplot as plt
-	from PhotALPsConv.tools import median_contours
-	from PhotALPsConv.deltas import Ecrit_GeV,Delta_Osc_kpc_array
 
 	fig = plt.figure()
 	ax = plt.subplot(111)
 	ax2 = fig.add_axes([0.2, 0.2, 0.4, 0.4])	# left bottom width height
 
-	Ecrit = Ecrit_GeV(self.m,self.kwargs['n'],self.kwargs['B'],self.g)
+	try:
+	    self.scenario.index('ICM')
+	    Ecrit = self.EcritAve()
+	except ValueError:
+	    Ecrit = Ecrit_GeV(self.m,self.kwargs['n'],self.kwargs['B'],self.g)
+
+	imin = np.argmin(np.abs(EGeV - Ecrit))
 
 	for i,a in enumerate([ax,ax2]):
 	    a.set_xscale('log')
@@ -550,8 +604,13 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 		if plot_all:
 		    for i in range(1,P.shape[axis]):
 			a.plot(EGeV,P[i], ls = ':', color = '0.', lw = 1)
+
+		ymin = ceil(np.log10(MedCon['median'][imin])) - 0.3
+		ymax = ceil(np.log10(MedCon['median'][imin]))
 	    else:
 		a.plot(EGeV,P, ls = '-', color = '0.', label = '$P_{\gamma\gamma}$')
+		ymin = ceil(np.log10(P[imin])) - 0.3
+		ymax = ceil(np.log10(P[imin]))
 
 	    a.axvline(Ecrit, 
 		ls = '--', color = '0.',lw = 1., 
@@ -560,16 +619,13 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 
 	    a.plot(EGeV,np.exp(-1. * self.ebl_norm * self.tau.opt_depth_array(self.z,EGeV / 1e3)[0]), ls = '-', color = 'red', lw = 2.,label = r'$\exp(-\tau)$')
 	    if not i:
-		a.legend(loc = 3, fontsize = 'small')
-		a.axis([EGeV[0],EGeV[-1],1e-3,1.1])
+		a.legend(loc = loc, fontsize = 'small')
+		v = a.axis([EGeV[0],EGeV[-1],y0,y1])
 		ax.set_xlabel("Energy (GeV)")
 		ax.set_ylabel("Photon survival probability")
 	    else:
-		imin = np.argmin(np.abs(EGeV - Ecrit))
 		xmin = np.log10(Ecrit) - 0.5
 		xmax = np.log10(Ecrit) + 0.5
-		ymin = ceil(np.log10(MedCon['median'][imin])) - 0.3
-		ymax = ceil(np.log10(MedCon['median'][imin]))
 		a.axis([10.**xmin,10.**xmax,10.**ymin,10.**ymax])
 
 	if not filename == None:
