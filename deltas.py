@@ -7,7 +7,7 @@ Version 1.0
 
 import numpy as np
 
-__version__=0.02
+__version__=0.03
 
 #g is photon axion coupling in 10^-11 GeV^-1
 #B is magnetic field in nG
@@ -35,12 +35,22 @@ Delta_a_kpc= lambda m,E: -7.8e-2*m**2./E
 #E is Energy in TeV
 #returns Delta in Mpc^-1
 #taken from Mirizzi & Montanino 2009
-Delta_pl_Mpc= lambda n,E: -1.1e-11*n/E
+Delta_pl_Mpc= lambda n,E: -1.1e-11*n/E + Delta_CMB_Mpc(E)
 
 #n is electron density in 10^-3 cm^-3
 #E is Energy in GeV
 #returns Delta in kpc^-1
-Delta_pl_kpc= lambda n,E: -1.1e-7*n/E
+Delta_pl_kpc= lambda n,E: -1.1e-7*n/E + Delta_CMB_kpc(E)
+
+#E is Energy in GeV
+#returns Delta in kpc^-1
+# additional term from Dobrynina+ 2014, 1412.4771
+Delta_CMB_kpc= lambda E: 0.8e-7*E
+
+#E is Energy in TeV
+#returns Delta in Mpc^-1
+# additional term from Dobrynina+ 2014, 1412.4771
+Delta_CMB_Mpc= lambda E: 0.8e-1*E
 
 #B is magnetic field in nG
 #E is Energy in TeV
