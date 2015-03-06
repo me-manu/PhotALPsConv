@@ -1,19 +1,6 @@
 PhotALPsConv
 ============
 
-	#################################
-	#	PhotALPsConv            #
-	#################################
-	# python package to compute     #
-	# photon-ALP oscillations in    #
-	# the AGN Jet,ICM, IGMF and GMF #
-	#                               #
-	# Author:                       #
-	# -------                       #
-	# Manuel Meyer                  #
-	# manuel.meyer@fysik.su.se      #
-	#################################
-
 1. Introduction
 ---------------
 
@@ -58,9 +45,18 @@ You will also need the following python packages:
 - iminuit_fit.py: Power law and log parabola fit of spectrum corrected for ALP effect (Jet/ICM + GMF only so far)
 - deltas.py: auxilliary functions to calculate the delta (momentum difference) parameters
 - example.py: example script
-- EXAMPLE.yaml: example config file to be run with example.py script
+- yaml/PG1553.yaml: example config file to be run with example.py script
 
-4. License
+4. Usage
+--------
+Test the installation with 
+> python example.py -c yaml/PG1553.yaml
+
+This calculates and plots the photon survival probability for gamma rays 
+originating from the blazar PG1553+113. 
+Both the script and the yaml file are extensively commented to explain the usage.
+
+5. License
 ----------
 PhotALPsConv is distributed under the modified BSD License.
 

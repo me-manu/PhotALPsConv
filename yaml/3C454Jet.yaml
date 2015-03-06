@@ -1,0 +1,76 @@
+# example yaml file with kwargs for photon - ALP mixing, 
+# just listing  the defaults
+# ----- source parameters - example of PKS 2155-304 ----- #
+# z		- redshift
+# ra		- R.A. in deg
+# dec		- DEC in deg
+z: 0.859
+ra: 343.49063
+dec: 16.14822
+# ---- ALP parameters ----- #
+# scenario	- List with Bfield environments that are taken into account.
+#		  Possibilities are Jet, ICM, IGM, GMF
+# g		- photon ALP coupling in 10^-11 GeV^-1
+# m		- ALP mass in neV
+# nsim		- number of random realizations
+scenario: [ICM,GMF]
+g: 5.
+m: 5.
+nsim: 1
+# ----- initial polarization ----- #
+pol_t: 0.5
+pol_u: 0.5
+pol_a: 0.
+# ----- jet parameters----- #
+# R_BLR		- distance BLR to SMBH in pc
+# njet		- electron density at r=R_BLR in cm^-3
+# Rmax		- max radius of coherent Bfield
+# Bjet		- B field at r=R_BLR in G
+# sjet		- power of density, n(r) = n * (r / R_BLR) ^ -sjet
+# pjet		- power of B field, B(r) = B * (r / R_BLR) ^ -pjet
+# Psi		- angle of B field and t polarization 
+R_BLR: 0.3
+njet: 1000.
+Rmax: 1000.
+Bjet: 0.1
+sjet: 2.
+pjet: 1.
+Psi: 0.
+# ----- ICM parameters ----- #
+# B		- intracluster B field in muG
+# n		- intracluster electron density in 1e-3 cm^-3
+# Lcoh		- coherence length of cluster in kpc
+# r_abell	- distance that photon beam travels in cluster, in kpc
+# r_core	- radius of cluster core in kpc
+# Bn_const	- bool, determine if B field constant throughout cluster volume
+#		  or if it follows electron density profile
+# beta		- power of electron density profile
+# eta		- power of B field profile
+B: 1.
+n: 1.
+Lcoh: 10.
+r_abell: 100.
+r_core: 200.
+Bn_const: True
+beta: 2. / 3.
+eta: 1.
+# ----- IGM parameters ----- #
+# B0		- B field at z = 0 in nG
+# L0		- coherence length at z = 0 in Mpc
+# n0		- electron density at z=0 in 1e-7 cm^-3
+# ebl		- ebl model, possibilities are gilmore, kneiske, franceschini, dominguez, inoue
+# ebl_norm	- normalization of optical depth
+B0: 0.01
+L0: 5.
+n0: 1.
+ebl: 'gilmore'
+ebl_norm: 1.
+# ----- GMF parameters----- #
+# nGMF		- electron density in Milky Way in 1e-3 cm^-3
+# NE2001	- bool, if True, use NE2001 code to calculate electron density
+# model		- GMF model that is used. Currently implemented: jansson, pshirkov
+# model_sym	- determine GMF model symmetry (only in pshirkov model). Options: ASS, BSS
+nGMF: 10000.
+NE2001:  False
+model: 'jansson'
+model_sym: 'ASS'
