@@ -1,87 +1,68 @@
-"""
-Example script to show use of PhotALPsConv.calc_conversion module.
-"""
+#Example script to show use of PhotALPsConv.calc_conversion module.
 
-import PhotALPsConv.calc_conversion as CC
-from PhotALPsConv.tools import median_contours
+# ---- Imports ------------------------------------- #
 import numpy as np
 import matplotlib.pyplot as plt
-import yaml
+import PhotALPsConv.calc_conversion as CC
+from PhotALPsConv.tools import median_contours
 from optparse import OptionParser
-from scipy.integrate import simps
-from scipy.interpolate import interp1d
-from PhotALPsConv.deltas import Ecrit_GeV,Delta_Osc_kpc
+# -------------------------------------------------- #
 
+# read in the config file 
 parser=OptionParser()
 parser.add_option("-c","--config",dest="c",help="config yaml file",action="store")
 (opt, args) = parser.parse_args()
 
+# init the conversion calculation 
 cc = CC.Calc_Conv(config = opt.c)
 
-elogmin = -1
-elogmax = 5
-EGeV = 10.**np.linspace(elogmin,elogmax,200)
+# the energy array in GeV
+EGeV = np.logspace(cc.log10Estart,cc.log10Estop,cc.Estep)
 
-Pt = np.zeros((cc.nsim,EGeV.shape[0]))	# init matrices that will store the conversion probabilities
+# init matrices that will store the conversion probabilities
+# for the different photon (t,u) and ALP (a) polarization states
+Pt = np.zeros((cc.nsim,EGeV.shape[0]))	
 Pu = np.zeros((cc.nsim,EGeV.shape[0]))
 Pa = np.zeros((cc.nsim,EGeV.shape[0]))
 
 # calculate the mixing, nsim > 0 only if ICM or IGM are included
 for i in range(cc.nsim):
-    Pt[i],Pu[i],Pa[i] = cc.calc_conversion(EGeV, new_angles = True)
+    try:
+	cc.scenario.index('Jet')
+	new_angles = False
+    except ValueError:
+	new_angles = True
+# calculate the mixing for all energies. If new_angles = True, 
+# new random angles will be generated for each random realizatioin
+    Pt[i],Pu[i],Pa[i] = cc.calc_conversion(EGeV, new_angles = new_angles)
+
 # calculate the median and 68% and 95% confidence contours
 MedCon = median_contours(Pt + Pu)
 
-
-# --- calculate energy dispersion for one realizations
-Esteps = 100
-Edisp = lambda E,Etrue,sigE :  np.exp(-0.5 * (E - Etrue)**2. / sigE ** 2.) / np.sqrt(2 * np.pi) / sigE
-
-interp = interp1d(np.log(EGeV),np.log(Pt + Pu)[0])
-Pgg = lambda E: np.exp(interp(np.log(E)))
-Pgglog = lambda logE: np.exp(interp(logE))
-
-EGeVn = 10.**np.linspace(elogmin + 1,elogmax -1,150)
-
-for i,E in enumerate(EGeVn):
-    sE = 0.05 * E
-    if not i:
-	logEarray	= np.linspace(np.log(E - 5. * sE),np.log(E + 5. * sE),Esteps)
-	kernel		= Edisp(np.exp(logEarray),E, sE) * Pgglog(logEarray)
-    else:
-	logE	= np.linspace(np.log(E - 5. * sE),np.log(E + 5. * sE),Esteps)
-	logEarray = np.vstack((logEarray,logE))
-	ker	= Edisp(np.exp(logE),E, sE) * Pgglog(logE)
-	kernel = np.vstack((kernel,ker))
-
-PggEdisp = simps(kernel * np.exp(logEarray), logEarray, axis = 1)
-
-# plot the result
+# plot the results
 plt.figure()
 ax = plt.subplot(111)
 ax.set_xscale("log")
 ax.set_yscale("log")
 
-plt.fill_between(EGeV,MedCon['conf_95'][0],y2 = MedCon['conf_95'][1], color = plt.cm.Greens(0.8))
-plt.fill_between(EGeV,MedCon['conf_68'][0],y2 = MedCon['conf_68'][1], color = plt.cm.Greens(0.5))
+# plot the contours if we are dealing with many realizations
+if cc.nsim > 1:
+    plt.fill_between(EGeV,MedCon['conf_95'][0],y2 = MedCon['conf_95'][1], color = plt.cm.Greens(0.8))
+    plt.fill_between(EGeV,MedCon['conf_68'][0],y2 = MedCon['conf_68'][1], color = plt.cm.Greens(0.5))
+    plt.plot(EGeV,MedCon['median'], ls = '-', color = 'gold', label = 'median')
+    label = 'one realization'
+else:
+    label = 'w/ ALPs'
 
-plt.plot(EGeV,np.exp(-1. * cc.ebl_norm * cc.tau.opt_depth_array(cc.z,EGeV / 1e3)[0]), ls = '--', color = 'red', label = r'$\exp(-\tau)$')
+# plot the standard attenuation
+plt.plot(EGeV,np.exp(-1. * cc.ebl_norm * cc.tau.opt_depth_array(cc.z,EGeV / 1e3)[0]), ls = '--', color = 'red', label = r'w/o ALPs', lw = 3.)
 
-plt.plot(EGeV,MedCon['median'], ls = '-', color = '0.', label = 'median')
-plt.plot(EGeV,Pt[0] + Pu[0], ls = '-', color = 'gold', label = 'one realization')
-plt.plot(EGeVn,PggEdisp, ls = '-', color = 'blue', label = 'one realization - smeared with 6% energy dispersion')
+# plot the photon survival probability including ALPs
+plt.plot(EGeV,Pt[0] + Pu[0], ls = '-', color = '0.', label = label, lw = 3.)
 
-Bave = simps(cc.B,cc.r) / (cc.r[-1] - cc.r[0])
-nave = simps(cc.n,cc.r) / (cc.r[-1] - cc.r[0])
-Dosc = Delta_Osc_kpc(cc.m,nave,cc.g,Bave,EGeV)
-print 'maximum osc. Delta: {0:.2e}'.format(np.max(Dosc))
+plt.xlabel("Energy (GeV)", size = 'x-large')
+plt.ylabel("Photon survival probability", size = 'x-large')
+plt.legend(loc = 3, fontsize = 'x-large')
 
-plt.axvline(Ecrit_GeV(cc.m,nave,Bave,cc.g), ls = '--', color = '0.', label = r'$E_\mathrm{{crit}}(\langle B \rangle = {0:.2f}\mu\mathrm{{G}})$'.format(Bave))
-
-plt.xlabel("Energy (GeV)")
-plt.ylabel("Photon survival probability")
-plt.legend(loc = 0)
-
-plt.axis([EGeV[0],EGeV[-1],1e-2,1.1])
-plt.savefig('conversion.pdf',format = 'pdf')
+plt.axis([EGeV[0],EGeV[-1],1e-1,1.1])
 plt.show()
