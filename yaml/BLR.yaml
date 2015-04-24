@@ -1,0 +1,53 @@
+# example yaml file with kwargs for photon - ALP mixing, 
+# just listing  the defaults
+# ----- source parameters - example of PKS 1222+21 ----- #
+# z		- redshift
+# ra		- R.A. in deg
+# dec		- DEC in deg
+z: 0.434
+ra: 186.22692
+dec: 21.37956
+# ---- ALP parameters ----- #
+# scenario	- List with Bfield environments that are taken into account.
+#		  Possibilities are Jet, ICM, IGM, GMF
+# g		- photon ALP coupling in 10^-11 GeV^-1
+# m		- ALP mass in neV
+# nsim		- number of random realizations
+scenario: [BLR]
+g: 5.
+m: 10.
+nsim: 10
+
+# ----- Define energy range in GeV --#
+log10Estart: -1.
+log10Estop: 4.6
+Estep: 1000
+
+# ----- initial polarization ----- #
+pol_t: 0.5
+pol_u: 0.5
+pol_a: 0.
+# ----- BLR parameters----- #
+# Only applies if Jet is included in the scenario list
+# R_BLR		- distance BLR to SMBH in pc
+# nBLR		- electron density of BLR in cm^-3
+# BBLR		- B field of BLR in G
+# L_BLR		- coherence length of B field in BLR (default L_BLR = B_BLR, i.e. one domain)
+R_BLR: 0.3
+n_BLR: 1.e+05
+B_BLR: 0.2
+L_BLR: 1.
+# ----- Absorption parameters ----- #
+# ELines	- line energies in eV
+# logNLines	- log10 column densities of lines in cm^2
+Elines: [13.6,10.2,8.0,24.6,21.2]
+NLines: [24.,24.,24.,24.,24.]
+
+# old code
+B: 1.
+n: 1.
+Lcoh: 100.
+r_abell: 100.
+r_core: 100.
+Bn_const: True
+B_gauss: False
