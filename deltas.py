@@ -3,11 +3,15 @@ Functions to calculate the Delta parameters that enter into the photon-Axion Mix
 
 Version 1.0
 - 11/15/11: created
+- 01/05/16: added correction factors for high magnetic fields
 """
 
 import numpy as np
 
-__version__=0.03
+__version__=0.04
+
+Bcrit 		= 4.414e13 # critical magnetic field in G
+kpcmuG2GeV 	= 0.030422 # Conversion from kpc*muG to GeV in LHU (needs to be checked)
 
 #g is photon axion coupling in 10^-11 GeV^-1
 #B is magnetic field in nG
@@ -61,7 +65,9 @@ Delta_QED_Mpc= lambda B,E: 4.1e-9*E*B**2.
 #B is magnetic field in muG
 #E is Energy in GeV
 #returns Delta in kpc^-1
-Delta_QED_kpc= lambda B,E: 4.1e-9*E*B**2.
+# with correction factors of Perna et al. 2012
+Delta_QED_kpc= lambda B,E: 4.1e-9*E*B**2. * (1. + 1.2e-6 * B / Bcrit) / \
+				(1. + 1.33e-6*B / Bcrit + 0.59e-6 * (B / Bcrit)**2.)
 
 def Delta_Osc_kpc_array(m,n,g,B,E): 
     """
@@ -150,7 +156,9 @@ Ecrit_GeV= lambda m,n,B,g: 2.5e0*abs(m**2. - w_pl_e9(n)**2.)/B/g
 #Maximum energy for strong mixing regime in GeV
 #B is magnetic field in muG
 #g is photon axion coupling in 10^-11 GeV^-1
-Emax_GeV= lambda B,g: 2.12e6 * g / B
+#Emax_GeV= lambda B,g: 2.12e6 * g / B
+# Check this!
+Emax_GeV= lambda B,g: kpcmuG2GeV*(3.5*4.1e-9*B**2 + 0.8e-7 )**-1 *B * g  
 
 # mixing angle
 #m is axion mass in 10^-09 eV

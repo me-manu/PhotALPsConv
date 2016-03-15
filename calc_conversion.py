@@ -5,6 +5,7 @@ Module to wrap calculate conversion from photon to ALPs for different B field en
 History:
 --------
 - 01/05/2014: version 0.01 - created
+- 03/14/2014: version 0.1 - added BLR conversion
 """
 
 __author__ = "Manuel Meyer // manuel.meyer@fysik.su.se"
@@ -23,18 +24,20 @@ import logging
 import copy
 # --- ALP imports 
 import PhotALPsConv.conversion_Jet as JET
-import PhotALPsConv.conversion as IGM 
+import PhotALPsConv.conversion as IGM 				
 import PhotALPsConv.conversion_ICM as ICM 
-import PhotALPsConv.conversion_GMF as GMF 
+import PhotALPsConv.conversion_GMF as GMF
+import conversion_BLR as BLR	                    
 from PhotALPsConv.tools import median_contours
 from PhotALPsConv.deltas import Ecrit_GeV,Delta_Osc_kpc_array
 # --- EBL imports
 import eblstud.ebl.tau_from_model as TAU
 from eblstud.misc.bin_energies import calc_bin_bounds
 from eblstud.tools.iminuit_fit import *
+# --- BLR imports
 # ------------------------ #
 
-class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
+class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF,BLR.PhotALPs_BLR):
     """
     Class to wrap the calculation for photons to ALPs.
     """
@@ -49,6 +52,7 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 			ICM:	Mixing in a galaxy cluster
 			IGM:	Mixing in the intergalactic magnetic field
 			GMF:	Mixing in the Galactic magnetic field
+			BLR:	Mixing in the broad line region                         ###### MIN
 			default: ['ICM','GMF']
 
 	config:		string, path to config yaml file. If none, use kwargs.
@@ -61,7 +65,7 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 
 	Rmax:		distance up to which jet extends, in pc.
 	Bjet:		field strength at r = R_BLR in G, default: 0.1 G
-	R_BLR:		Distance of broad line region (BLR) to centrum in pc, default: 0.3 pc
+	R_BLR:		Distance of broad line region (BLR) in pc, default: 0.3 pc      #####Keep this
 	njet:		electron density in the jet at r = R_BLR, in cm^-3, default: 1e3
 	s:		exponent for scaling of electron density, default: 2.
 	p:		exponent for scaling of magneitc field, default: 1.
@@ -70,6 +74,13 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	Psi:		scalar, angle between B field and transversal photon polarization in the jet, default: 0.
 	theta_jet:	float, angle between jet and l.o.s. in degrees, default: 3.
 	Gamma:		float, bulk lorentz factor, default: 10.
+	
+	n_BLR		electron density in the BLR in cm^-3, default: 1e5
+	B_BLR		B field in the BLR in G, default: 0.2
+	L_BLR		coherence length of B field in BLR (default L_BLR = B_BLR, i.e. one domain)
+
+	ELines	  	line energies in the BLR in eV, default: [13.6,10.2,8.0,24.6,21.2]
+	logNLines	- log10 column densities of lines in cm^2, default: [24.,24.,24.,24.,24.]
 
 	model:		GMF model that is used. Currently available: pshirkov (ASS), jansson (default)
 	ebl:		EBL model that is used. defaut: gilmore
@@ -109,6 +120,11 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 		self.new_random_psi()
 	except ValueError:
 	    pass
+	try:
+	    self.scenario.index('BLR')
+	    self.new_random_psi_BLR()
+	except ValueError:
+	    pass
 
 	return
 
@@ -145,6 +161,12 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 	    self.update_params_Jet(**kwargs)
 	except ValueError:
 	    pass
+	try:
+	    self.scenario.index('BLR')
+	    self.update_params_BLR(**kwargs)
+	except ValueError:
+	    pass
+
 	# --- init initial and final polarization states ------ #
 	if new_init:
 	    self.pol	= np.zeros((3,3))	# initial polarization state
@@ -231,11 +253,23 @@ class Calc_Conv(IGM.PhotALPs,JET.PhotALPs_Jet,GMF.PhotALPs_GMF):
 		    self.new_random_psi()
 	except ValueError:
 	    pass
+	try:
+	    self.scenario.index('BLR')
+	    if new_angles:
+		self.new_random_psi_BLR()
+	except ValueError:
+	    pass
 
 	# --- calculate transfer matrix for every energy
 	for i,E in enumerate(EGeV):
 	    pol		= self.pol
 	    self.E	= E
+	    try:
+		self.scenario.index('BLR')
+		T	= self.SetDomainN_BLR()
+		pol	= np.dot(T,np.dot(pol,T.transpose().conjugate()))	# new polarization matrix
+	    except ValueError:
+		pass
 	    try:
 		self.scenario.index('Jet')
 		T	= self.SetDomainN_Jet()
