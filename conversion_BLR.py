@@ -91,9 +91,6 @@ class PhotALPs_BLR(object):
 		
 	super(PhotALPs_BLR,self).__init__()
 
-	# Optical depth class
-	self.tt = OptDepth_BLR(Elines = self.Elines, Nlines = self.Nlines, z = self.z)  
-
 	return
 	
 
@@ -122,6 +119,9 @@ class PhotALPs_BLR(object):
 	self.T2_BLR	= np.zeros((3,3,self.Nd_BLR),np.complex)    
 	self.T3_BLR	= np.zeros((3,3,self.Nd_BLR),np.complex)
 	self.Un_BLR	= np.zeros((3,3,self.Nd_BLR),np.complex)
+
+	# Optical depth class
+	self.tt = OptDepth_BLR(Elines = self.Elines, Nlines = self.Nlines, z = self.z)  
 
 	return
 
