@@ -21,7 +21,7 @@ import subprocess,os,glob
 # --- Conversion in the galactic magnetic field ---------------------------------------------------------------------#
 from gmf import gmf
 from gmf.trafo import *
-from kapteyn import wcs
+from astropy.coordinates import SkyCoord
 from scipy.integrate import simps
 from gmf.ne2001 import density_2001_los as dl
 
@@ -75,10 +75,12 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	NE2001file: string (optional, default = None)
 	    file with electron density along line of sight. If None, it will be created.
 	model: string (default = jansson)
-	    GMF model that is used. Currently the model by Jansson & Farrar (2012) and Pshirkov et al. (2011) are implemented. 
+	    GMF model that is used. Currently the model by Jansson & Farrar (2012) 
+	    and Pshirkov et al. (2011) are implemented. 
 	    Usage: model=[jansson, phsirkov]
 	model_sym: string (default = ASS)
-	    Only applies if pshirkov model is chosen: you can choose between the axis- and bisymmetric version by setting model_sym to ASS or BSS.
+	    Only applies if pshirkov model is chosen: 
+	    you can choose between the axis- and bisymmetric version by setting model_sym to ASS or BSS.
 
 	Returns
 	-------
@@ -157,17 +159,17 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	"""
 
 	# Transformation RA, DEC -> L,B
-	tran = wcs.Transformation("EQ,fk5,J2000.0", "GAL")
-	self.l,self.b = tran.transform((ra,dec)) # return galactic coordinates in degrees
-	self.l *= np.pi / 180.	# transform to radian
-	self.b *= np.pi / 180.	# transform to radian
+	c = SkyCoord(ra, dec, frame='icrs', unit='deg')
+	self.l = c.galactic.l.value * np.pi / 180.
+	self.b = c.galactic.b.value * np.pi / 180.
 	d = self.d
 
 	if self.galactic < 0.:	# if source is extragalactic, calculate maximum distance that beam traverses GMF to Earth
 	    cl = np.cos(self.l)
 	    cb = np.cos(self.b)
 	    sb = np.sin(self.b)
-	    self.smax = np.amin([self.zmax/np.abs(sb),1./np.abs(cb) * (-d*cl + np.sqrt(d**2 + cl**2 - d**2*cb + self.rho_max**2))])
+	    self.smax = np.amin([self.zmax/np.abs(sb),
+			1./np.abs(cb) * (-d*cl + np.sqrt(d**2 + cl**2 - d**2*cb + self.rho_max**2))])
 	else:
 	    self.smax = self.galactic
 
@@ -186,7 +188,8 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	Returns
 	-------
 	2-dim tuple containing:
-	    (3,N)-dim np.parray containing GMF for all domains in galactocentric cylindrical coordinates (rho, phi, z) 
+	    (3,N)-dim np.parray containing GMF for all domains in 
+	    galactocentric cylindrical coordinates (rho, phi, z) 
 	    N-dim np.array, field strength for all domains
 	"""
 	if np.isscalar(l):
@@ -232,20 +235,22 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	Pag: float, photon ALPs conversion probability
 	"""
 
-	self.__set_coordinates(ra,dec)
+	a = self.__set_coordinates(ra,dec)
 	self.E	= E
 
 	sa	= np.linspace(self.smax,0., self.int_steps,endpoint = False)	# divide distance into smax / Lcoh large cells
-	self.Lcoh = self.smax / 100.
+	self.Lcoh = self.smax / self.int_steps
 	#else:
 	#    sa	= np.linspace(self.smax,0., int(self.smax/self.Lcoh),endpoint = False)	# divide distance into smax / Lcoh large cells
 
 	self.s = sa
 	# --- Calculate B-field in all domains ---------------------------- #
 	B,Babs	= self.Bgmf_calc(sa)
-	Bs, Bt, Bu	= GC2HCproj(B, sa, self.l, self.b,self.d)	# Compute Bgmf and the projection to HC coordinates (s,b,l)
+	# Compute Bgmf and the projection to HC coordinates (s,b,l)
+	Bs, Bt, Bu	= GC2HCproj(B, sa, self.l, self.b,self.d)
 	
 	self.B	= np.sqrt(Bt**2. + Bu**2.)	# Abs value of transverse component in all domains
+
 	# Debug:
 	#self.B	= np.sqrt(Bt**2.)		# Abs value of transverse component in all domains
 	#self.B	= np.sqrt(Bu**2.)		# Abs value of transverse component in all domains
@@ -270,7 +275,10 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	# --- Calculate density in all domains: ----------------------------#
 	if self.NE2001:
 	    if self.NE2001file == None:
-		self.NE2001file = os.path.join(os.environ['NE2001_PATH'],'data/smax{0:.1f}_l{1:.2f}_b{2:.2f}_Lcoh{3}.pickle'.format(self.smax,self.l,self.b,self.Lcoh))
+		self.NE2001file = os.path.join(
+			os.environ['NE2001_PATH'],
+			'data/smax{0:.1f}_l{1:.2f}_b{2:.2f}_Lcoh{3}.pickle'.format(
+			self.smax,self.l,self.b,self.Lcoh))
 	    try:
 		f = open(self.NE2001file)	# check if n has already been calculated for this l,b, smax and Lcoh
 						# returns n in cm^-3
@@ -298,9 +306,12 @@ class PhotALPs_GMF(PhotALPs_ICM):
 	    pol_unpol = 0.5*(pol_t + pol_u)
 	    pol_a = np.zeros((3,3),np.complex)
 	    pol_a[2,2] += 1.
-	    Pt = np.sum(np.diag(np.dot(pol_t,np.dot(U,np.dot(pol,U.transpose().conjugate())))))	#Pt = Tr( pol_t U pol U^\dagger )
-	    Pu = np.sum(np.diag(np.dot(pol_u,np.dot(U,np.dot(pol,U.transpose().conjugate())))))	#Pu = Tr( pol_u U pol U^\dagger )
-	    Pa = np.sum(np.diag(np.dot(pol_a,np.dot(U,np.dot(pol,U.transpose().conjugate())))))	#Pa = Tr( pol_a U pol U^\dagger )
+	    #Pt = Tr( pol_t U pol U^\dagger )
+	    Pt = np.sum(np.diag(np.dot(pol_t,np.dot(U,np.dot(pol,U.transpose().conjugate())))))	
+	    #Pu = Tr( pol_u U pol U^\dagger )
+	    Pu = np.sum(np.diag(np.dot(pol_u,np.dot(U,np.dot(pol,U.transpose().conjugate())))))
+	    #Pa = Tr( pol_a U pol U^\dagger )
+	    Pa = np.sum(np.diag(np.dot(pol_a,np.dot(U,np.dot(pol,U.transpose().conjugate())))))
 	    return Pt,Pu,Pa
 	else:
 	    return np.sum(np.diag(np.dot(pol_final,np.dot(U,np.dot(pol,U.transpose().conjugate())))))

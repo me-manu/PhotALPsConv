@@ -29,7 +29,7 @@ You will also need the following python packages:
 - numpy
 - scipy
 - matplotlib
-- kapteyn
+- astropy
 - yaml
 - iminuit (if you are using the iminuit_fit script, see below)
 
