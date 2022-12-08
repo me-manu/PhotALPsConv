@@ -1,6 +1,8 @@
 PhotALPsConv
 ============
 
+_*This package is deprecated. Please use https://github.com/me-manu/gammaALPs/*_
+
 1. Introduction
 ---------------
 
